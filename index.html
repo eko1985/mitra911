@@ -342,6 +342,7 @@ const HOTELS=["THE 1O1 Yogyakarta Tugu", "Abadi Hotel Malioboro", "The Alana Yog
 const COMPLAINTS=[["fever", "Fever", "Demam"], ["headache", "Headache", "Sakit kepala"], ["dizziness", "Dizziness", "Pusing"], ["weakness", "Generalized weakness", "Lemas"], ["fainting", "Fainting", "Pingsan"], ["nausea", "Nausea", "Mual"], ["vomiting", "Vomiting", "Muntah"], ["diarrhea", "Diarrhea", "Diare"], ["abdominal_pain", "Abdominal pain", "Nyeri perut"], ["constipation", "Constipation", "Sembelit"], ["dehydration", "Dehydration", "Dehidrasi"], ["cough", "Cough", "Batuk"], ["sore_throat", "Sore throat", "Nyeri tenggorokan"], ["runny_nose", "Runny nose", "Pilek"], ["sob", "Shortness of breath", "Sesak napas"], ["chest_pain", "Chest pain", "Nyeri dada"], ["palpitations", "Palpitations", "Berdebar-debar"], ["high_bp", "High blood pressure", "Tekanan darah tinggi"], ["back_pain", "Back pain", "Nyeri punggung"], ["joint_pain", "Joint pain", "Nyeri sendi"], ["muscle_pain", "Muscle pain", "Nyeri otot"], ["rash", "Skin rash", "Ruam kulit"], ["itching", "Itching", "Gatal"], ["allergy", "Allergic reaction", "Reaksi alergi"], ["insect_bite", "Insect bite / sting", "Gigitan / sengatan serangga"], ["animal_bite", "Animal bite / scratch", "Gigitan / cakaran hewan"], ["wound", "Wound / laceration", "Luka / luka robek"], ["sprain", "Sprain", "Keseleo"], ["fall", "Fall injury", "Cedera karena jatuh"], ["burn", "Burn", "Luka bakar"], ["sunburn", "Sunburn", "Kulit terbakar matahari"], ["toothache", "Toothache", "Sakit gigi"], ["ear_pain", "Ear pain", "Nyeri telinga"], ["eye_irritation", "Eye irritation / red eye", "Iritasi / mata merah"], ["dysuria", "Painful urination", "Nyeri saat BAK"], ["insomnia", "Insomnia", "Sulit tidur"], ["anxiety", "Anxiety", "Cemas"], ["intoxication", "Alcohol intoxication", "Mabuk alkohol"], ["motion_sickness", "Motion sickness", "Mabuk perjalanan"], ["jet_lag", "Jet lag", "Jet lag"], ["med_refill", "Medication refill", "Minta obat rutin"], ["fit_to_fly", "Fit-to-fly assessment", "Pemeriksaan fit to fly"]];
 const cmpL=(k,lang)=>{const c=COMPLAINTS.find(x=>x[0]===k);return c?(lang==='id'?c[2]:c[1]):k};
 const isNone=t=>/^\s*(-+|–|—|tidak ada|tdk ada|tidak|none|nil|no|disangkal|nka|nkda|n\/a)\s*\.?\s*$/i.test(String(t||''));
+const artEn=w=>/^(8|11|18|8\d)\b/.test(w)||(/^[aeiou]/i.test(w)&&!/^(uni|uk|ug|uru|eu|one|use)/i.test(w))?'an':'a';
 const natList=(a,lang)=>a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+(lang==='id'?' dan ':' and ')+a[a.length-1];
 const chiefLabel=p=>{const it=(p.complaint.items||[]).map(k=>cmpL(k,'en'));return [it.join(', '),p.complaint.chief].filter(Boolean).join(' — ')};
 const flagOf=name=>{const c=COUNTRIES.find(x=>x[0].toLowerCase()===String(name||'').toLowerCase().trim());if(!c)return '';return String.fromCodePoint(...[...c[1]].map(ch=>127397+ch.charCodeAt(0)))};
@@ -371,6 +372,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
+const APP_VERSION='v2026.10.13-19';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -560,7 +562,7 @@ function renderNav(){
   $('#bNav').innerHTML=NAV.map(n=>n[0]==='new'?`<button class="fab" data-act="new" aria-label="Pasien baru"><span class="circ">${ic('plus',26,2.6)}</span></button>`:`<button class="${cur===n[0]?'on':''}" data-nav="${n[0]}">${ic(n[2])}${n[1]}</button>`).join('');
   const act=DB.patients.filter(p=>p.status==='aktif').length;
   $('#topActive').textContent=act+' aktif';
-  $('#sideFoot').innerHTML=`Tim jaga:<br><b>${esc(DB.settings.doctor||'—')}</b><br><b>${esc(DB.settings.nurse||'—')}</b><br><div class="syncbox" style="margin-top:8px"></div>`;
+  $('#sideFoot').innerHTML=`Tim jaga:<br><b>${esc(DB.settings.doctor||'—')}</b><br><b>${esc(DB.settings.nurse||'—')}</b><br><div class="syncbox" style="margin-top:8px"></div><div style="margin-top:6px;opacity:.7">${APP_VERSION}</div>`;
   syncUI();
 }
 
@@ -699,15 +701,15 @@ function vDetail(){
 }
 function events(p){
   const ev=[];
-  ev.push({t:p.createdAt,k:'s',ttl:'Pasien diterima',txt:chiefLabel(p)});
-  p.vitals.forEach(v=>ev.push({t:v.t,k:'v',ttl:'TTV',txt:`TD ${v.sbp||'–'}/${v.dbp||'–'} · N ${v.hr||'–'} · RR ${v.rr||'–'} · S ${v.temp||'–'} · SpO₂ ${v.spo2||'–'}%${v.o2?' (O₂)':''}${v.note?'\n'+v.note:''}`,chip:newsChip(v)}));
-  p.advice.forEach(x=>ev.push({t:x.t,k:'d',ttl:'Advice '+(x.doctor||'dokter'),txt:[x.dx&&('Dx: '+x.dx),x.rx&&('Terapi: '+x.rx),x.plan&&('Instruksi: '+x.plan)].filter(Boolean).join('\n')}));
-  p.actions.forEach(x=>ev.push({t:x.t,k:'a',ttl:'Tindakan '+(x.nurse||'perawat'),txt:(x.items||[]).join(', ')+(x.detail?'\n'+x.detail:'')}));
-  if(p.outcome)ev.push({t:p.outcome.t,k:'s',ttl:'Selesai — '+(OUTCOMES[p.outcome.type]||''),txt:[p.outcome.dest&&('Tujuan: '+p.outcome.dest),p.outcome.note].filter(Boolean).join('\n')});
+  ev.push({t:p.createdAt,k:'s',ttl:'Pasien diterima',txt:chiefLabel(p),ref:'start'});
+  p.vitals.forEach(v=>ev.push({t:v.t,k:'v',ttl:'TTV',txt:`TD ${v.sbp||'–'}/${v.dbp||'–'} · N ${v.hr||'–'} · RR ${v.rr||'–'} · S ${v.temp||'–'} · SpO₂ ${v.spo2||'–'}%${v.o2?' (O₂)':''}${v.note?'\n'+v.note:''}`,chip:newsChip(v),ref:'v:'+v.id,news:news(v)}));
+  p.advice.forEach(x=>ev.push({t:x.t,k:'d',ttl:'Advice '+(x.doctor||'dokter'),txt:[x.dx&&('Dx: '+x.dx),x.rx&&('Terapi: '+x.rx),x.plan&&('Instruksi: '+x.plan),x.follow&&('Tindak lanjut: '+x.follow)].filter(Boolean).join('\n'),ref:'d:'+x.id}));
+  p.actions.forEach(x=>ev.push({t:x.t,k:'a',ttl:'Tindakan '+(x.nurse||'perawat'),txt:(x.items||[]).join(', ')+(x.detail?'\n'+x.detail:''),ref:'a:'+x.id}));
+  if(p.outcome)ev.push({t:p.outcome.t,k:'s',ttl:'Selesai — '+(OUTCOMES[p.outcome.type]||''),txt:[p.outcome.dest&&('Tujuan: '+p.outcome.dest),p.outcome.note].filter(Boolean).join('\n'),ref:'end'});
   return ev.sort((a,b)=>b.t-a.t);
 }
 function timeline(ev){const icn={s:'flag',v:'pulse',d:'steth',a:'hand'};
-  return `<div class="tl">${ev.map(e=>`<div class="tl-item"><div class="tl-time">${fTime(e.t)}<div class="xs">${new Date(e.t).toLocaleDateString('id-ID',{day:'numeric',month:'short'})}</div></div><div class="tl-dot ${e.k}">${ic(icn[e.k],13,2.4)}</div><div class="tl-body"><div class="ttl"><span>${esc(e.ttl)}</span>${e.chip||''}</div>${e.txt?`<p>${esc(e.txt)}</p>`:''}</div></div>`).join('')}</div>`}
+  return `<div class="tl">${ev.map(e=>`<div class="tl-item"><div class="tl-time">${fTime(e.t)}<div class="xs">${new Date(e.t).toLocaleDateString('id-ID',{day:'numeric',month:'short'})}</div></div><div class="tl-dot ${e.k}">${ic(icn[e.k],13,2.4)}</div><div class="tl-body"><div class="ttl"><span>${esc(e.ttl)}</span><span class="row" style="gap:4px;flex-wrap:nowrap">${e.chip||''}${e.ref?`<button class="iconbtn" data-tledit="${esc(e.ref)}" aria-label="Edit" title="Edit">${ic('edit',15)}</button>`:''}</span></div>${e.txt?`<p>${esc(e.txt)}</p>`:''}</div></div>`).join('')}</div>`}
 function tabRing(p){const v=lastV(p),c=p.complaint;
   return `<div class="two"><div style="display:flex;flex-direction:column;gap:16px">
     <div class="card pad"><div class="sec-h"><h2>Keluhan</h2><button class="iconbtn" data-act="edit" aria-label="Edit">${ic('edit')}</button></div>
@@ -718,7 +720,7 @@ function tabRing(p){const v=lastV(p),c=p.complaint;
      ${p.status==='aktif'?`<button class="btn go" style="margin-top:12px;width:100%" data-addv="${p.id}">${ic('plus')}Input TTV</button>`:''}</div>
     <div class="row">${p.status==='aktif'?`<button class="btn grow" data-act="addAdv">${ic('steth')}Advice Dokter</button><button class="btn grow" data-act="addAct">${ic('hand')}Tindakan</button>`:''}</div>
    </div>
-   <div class="card pad"><div class="sec-h"><h2>Kronologi</h2><span class="xs muted">Terbaru di atas</span></div>${timeline(events(p))}</div></div>`}
+   <div class="card pad"><div class="sec-h"><div><h2>Kronologi</h2><span class="xs muted">Terbaru di atas · ketuk ✏ untuk edit</span></div>${IN_FRAME?'':`<button class="btn sm" data-act="tlpng">${ic('install',16)}Export PNG</button>`}</div>${timeline(events(p))}</div></div>`}
 function tabTTV(p){
   const vs=p.vitals.slice().sort((a,b)=>b.t-a.t);
   return `${p.status==='aktif'?`<div class="monitor ${MON.due&&MON.id===p.id?'due':''}" id="monbar">
@@ -789,7 +791,7 @@ function vForm(){
 }
 
 function vSet(){const s=DB.settings,demo=DB.patients.filter(p=>p.demo).length;
-  return `<div class="phead"><div><h1>Pengaturan</h1><p>Tim jaga, tampilan, dan cadangan data.</p></div></div>
+  return `<div class="phead"><div><h1>Pengaturan</h1><p>Tim jaga, tampilan, dan cadangan data. <span class="pill done">${APP_VERSION}</span></p></div></div>
   <div class="two">
    <div class="card fsec"><h3>Tim jaga default</h3><div class="fgrid">
     <div class="f"><label for="sdoc">Nama dokter</label><input id="sdoc" value="${esc(s.doctor)}"></div>
@@ -938,7 +940,7 @@ function buildResume(p,lang){
   if(lang==='en'){
     const dem=natEn(i.nationality),sx=i.sex==='L'?'male':i.sex==='P'?'female':'';
     const desc=[a!=null?`${a}-year-old`:'',dem,sx||(a!=null||dem?'patient':'')].filter(Boolean).join(' ');
-    const who=`${i.name}${desc?`, a ${desc}${!dem&&i.nationality?` from ${countryEn(i.nationality)}`:''},`:''}`;
+    const who=`${i.name}${desc?`, ${artEn(desc)} ${desc}${!dem&&i.nationality?` from ${countryEn(i.nationality)}`:''},`:''}`;
     nar=`${who.replace(/,$/,'')}${i.passport?` (passport ${i.passport})`:''}${i.hotel?`, staying at ${i.hotel}${i.room?', room '+i.room+',':''}`:''}${i.hotel&&i.room?'':','} was seen by the Mitra 911 on-call team on ${dLong(p.createdAt,'en')} at ${fTime(p.createdAt)}, presenting with ${presentTxt||'—'}.`;
     if(i.allergy&&!isNone(i.allergy)&&!isNone(p.identity.allergy))nar+=` Known allergy: ${i.allergy}.`;
     if(v0)nar+=` Initial vital signs: ${vStr(v0,L)}${news(v0)?`, NEWS2 score ${news(v0).total}`:''}.`;
@@ -972,7 +974,7 @@ function buildResume(p,lang){
   pushT(L.s6,dxs.map((d,k)=>(dxs.length>1?(k+1)+'. ':'')+d).join('\n'));
   const rx=adv.filter(x=>x.rx);pushT(L.s7,rx.map(x=>(rx.length>1?`[${fTime(x.t)}]\n`:'')+x.rx).join('\n\n'));
   if(acts.length)S.push({h:L.s8,table:{head:[L.time,L.proc,L.detail,L.by],rows:acts.map(x=>[fTime(x.t),(x.items||[]).join(', ')||'–',x.detail||'–',x.nurse||'–'])},widths:[11,30,43,16]});
-  const pl=adv.filter(x=>x.plan||x.follow);pushT(L.s9,pl.map(x=>`${fTime(x.t)} — ${(EN?drEn(x.doctor):x.doctor)||''}${x.follow?` [${x.follow}]`:''}\n${x.plan||''}`.trim()).join('\n\n'));
+  const pl=adv.filter(x=>x.plan||x.follow);pushT(L.s9,pl.map(x=>{const who=[(EN?drEn(x.doctor):x.doctor)||'',fTime(x.t)].filter(Boolean).join(', ');return [x.plan||'',x.follow?(EN?'Follow-up: ':'Tindak lanjut: ')+x.follow:''].filter(Boolean).join('\n')+` (${who})`}).join('\n\n'));
   if(po)push(L.s10,[[L.outcome,L.out[po.type]||''],[L.dest,hideNone(po.dest)],[L.fnote,hideNone(po.note)]]);else S.push({h:L.s10,kv:[[L.outcome,L.under]]});
   if(rnote)S.push({h:L.s11,text:rnote});
   return {L,lang,ref:refNo(p),title:L.title,sub:L.sub,sections:S,docLic:'',nurseLic:'',doctor:(EN?drEn(p.team?.doctor):p.team?.doctor)||'',nurse:p.team?.nurse||'',place:'Yogyakarta',date:dLong(endT||Date.now(),lang),fname:('Laporan_Medis_'+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10))};
@@ -1070,21 +1072,21 @@ async function exportPdf(R){
   doc.setDrawColor(...NAVY);doc.setLineWidth(.9);doc.line(M,30,W-M,30);
   let y=36;
   const head=h=>{if(y>262){doc.addPage();y=18}doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(...NAVY);doc.text(T(h.toUpperCase()),M,y);doc.setDrawColor(201,211,230);doc.setLineWidth(.3);doc.line(M,y+1.6,W-M,y+1.6);y+=4};
-  const base={margin:{left:M,right:M,top:16,bottom:16},styles:{font:'helvetica',fontSize:9,cellPadding:1.8,textColor:[13,26,51],lineColor:[201,211,230],lineWidth:.2,overflow:'linebreak'}};
+  const base={margin:{left:M,right:M,top:16,bottom:16},styles:{font:'helvetica',fontSize:9,cellPadding:1.4,textColor:[13,26,51],lineColor:[201,211,230],lineWidth:.2,overflow:'linebreak'}};
   for(const s of R.sections){
     head(s.h);
     if(s.kv)doc.autoTable({...base,startY:y,theme:'grid',body:s.kv.map(([k,v])=>[T(k),T(v)]),columnStyles:{0:{cellWidth:48,fillColor:[238,242,250],textColor:MUT}}});
     else if(s.table){const tot=s.widths.reduce((a,b)=>a+b,0),cw={};s.widths.forEach((w,k)=>cw[k]={cellWidth:w/tot*(W-2*M)});
       doc.autoTable({...base,startY:y,theme:'grid',head:[s.table.head.map(T)],body:s.table.rows.map(r=>r.map(T)),headStyles:{fillColor:NAVY,textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[247,249,253]},columnStyles:cw})}
     else doc.autoTable({...base,startY:y,theme:'plain',body:[[T(s.text)]],styles:{...base.styles,lineWidth:0,cellPadding:{top:.5,bottom:1,left:0,right:0},fontSize:9.5}});
-    y=doc.lastAutoTable.finalY+6;
+    y=doc.lastAutoTable.finalY+5;
   }
-  if(y>238){doc.addPage();y=24}
-  y+=4;doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(13,26,51);
+  if(y>250){doc.addPage();y=24}
+  y+=2;doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(13,26,51);
   const c1=M+(W-2*M)/4,c2=M+3*(W-2*M)/4;
   doc.text(T(R.place+', '+R.date),c1,y,{align:'center'});doc.text(T(R.L.signDoc),c1,y+5,{align:'center'});doc.text(T(R.L.signNurse),c2,y+5,{align:'center'});
-  doc.setDrawColor(13,26,51);doc.setLineWidth(.3);doc.line(c1-30,y+28,c1+30,y+28);doc.line(c2-30,y+28,c2+30,y+28);
-  doc.setFont('helvetica','bold');doc.text(T(R.doctor),c1,y+33,{align:'center'});doc.text(T(R.nurse),c2,y+33,{align:'center'});
+  doc.setDrawColor(13,26,51);doc.setLineWidth(.3);doc.line(c1-30,y+24,c1+30,y+24);doc.line(c2-30,y+24,c2+30,y+24);
+  doc.setFont('helvetica','bold');doc.text(T(R.doctor),c1,y+29,{align:'center'});doc.text(T(R.nurse),c2,y+29,{align:'center'});
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...MUT);if(R.docLic)doc.text(T(R.L.lic+' '+R.docLic),c1,y+38,{align:'center'});if(R.nurseLic)doc.text(T(R.L.lic+' '+R.nurseLic),c2,y+38,{align:'center'});
   const n=doc.getNumberOfPages();
   for(let k=1;k<=n;k++){doc.setPage(k);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(138,151,176);doc.text(T(R.L.gen),M,286.5,{maxWidth:W-2*M});doc.text(T(R.ref),M,290.5);doc.text(T(`${R.L.page} ${k} ${R.L.of} ${n}`),W-M,290.5,{align:'right'})}
@@ -1103,6 +1105,60 @@ function vReport(){
   </div>
   ${lang==='en'?trPanel(p):''}
   <article class="card report" id="repdoc">${resumeHTML(RS)}</article>`;
+}
+
+/* ---------- export kronologi PNG ---------- */
+async function exportTimelinePng(p){
+  p=getP(p.id)||p;
+  try{await document.fonts.ready}catch(e){}
+  const logo=await new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=LOGO_WHITE});
+  const W=1080,PAD=56,F="Figtree, 'Segoe UI', Roboto, Arial, sans-serif",FM="'JetBrains Mono', Consolas, monospace";
+  const C={navy:'#17398C',ink:'#0D1A33',mut:'#5A6987',line:'#DBE2EF',soft:'#F4F7FC',green:'#15994A',warn:'#B77300',crit:'#CF332C',v:'#15994A',d:'#17398C',a:'#B77300',s:'#5A6987'};
+  const ev=events(p).sort((a,b)=>a.t-b.t);
+  const cv=document.createElement('canvas'),x=cv.getContext('2d');
+  const wrap=(t,font,max)=>{x.font=font;const out=[];String(t||'').split('\n').forEach(par=>{let ln='';par.split(/\s+/).forEach(w=>{const tt=ln?ln+' '+w:w;if(x.measureText(tt).width>max&&ln){out.push(ln);ln=w}else ln=tt});out.push(ln)});return out};
+  const TX=PAD+150,TW=W-TX-PAD-24;
+  // ukur tinggi
+  const items=ev.map(e=>{const body=wrap(e.txt,`400 24px ${F}`,TW-28);return {e,body,h:22+34+body.length*32+22}});
+  const headH=210,infoH=150,footH=90,H=headH+infoH+items.reduce((s,i)=>s+i.h+18,0)+footH;
+  const sc=2;cv.width=W*sc;cv.height=H*sc;x.scale(sc,sc);
+  x.fillStyle='#fff';x.fillRect(0,0,W,H);
+  // header
+  if(logo){const lw=300,lh=lw*logo.height/logo.width;x.drawImage(logo,PAD,48,lw,lh)}
+  x.textAlign='right';x.fillStyle=C.navy;x.font=`800 34px ${F}`;x.fillText('KRONOLOGI PENANGANAN',W-PAD,82);
+  x.fillStyle=C.mut;x.font=`500 22px ${F}`;x.fillText('Patient Care Timeline',W-PAD,114);
+  x.font=`500 20px ${FM}`;x.fillText(refNo(p),W-PAD,144);
+  x.fillStyle=C.navy;x.fillRect(PAD,172,W-2*PAD,4);
+  // info pasien
+  const i=p.identity;let y=headH;
+  x.fillStyle=C.soft;x.beginPath();x.roundRect?x.roundRect(PAD,y,W-2*PAD,infoH-24,16):x.rect(PAD,y,W-2*PAD,infoH-24);x.fill();
+  x.textAlign='left';x.fillStyle=C.ink;x.font=`700 32px ${F}`;x.fillText(i.name||'-',PAD+28,y+46);
+  x.fillStyle=C.mut;x.font=`500 22px ${F}`;
+  const a=ageOf(p);
+  x.fillText([i.passport&&('Paspor '+i.passport),i.nationality,a!=null?a+' th':'',i.sex==='L'?'Laki-laki':i.sex==='P'?'Perempuan':''].filter(Boolean).join('  ·  '),PAD+28,y+82);
+  x.fillText([i.hotel,i.room&&('Kamar '+i.room),fDate(p.createdAt)].filter(Boolean).join('  ·  '),PAD+28,y+112);
+  x.textAlign='right';x.font=`700 20px ${F}`;x.fillStyle=p.status==='aktif'?C.green:C.navy;x.fillText(p.status==='aktif'?'● Ditangani':'Selesai',W-PAD-28,y+46);
+  y=headH+infoH;
+  // garis waktu
+  const lineX=PAD+118;
+  if(items.length){x.fillStyle=C.line;x.fillRect(lineX-1.5,y+24,3,items.reduce((s,it)=>s+it.h+18,0)-40)}
+  items.forEach(it=>{const e=it.e,col=C[e.k]||C.navy;
+    x.textAlign='right';x.fillStyle=C.ink;x.font=`700 24px ${FM}`;x.fillText(fTime(e.t),lineX-26,y+36);
+    x.fillStyle=C.mut;x.font=`500 17px ${F}`;x.fillText(new Date(e.t).toLocaleDateString('id-ID',{day:'numeric',month:'short'}),lineX-26,y+60);
+    x.fillStyle='#fff';x.beginPath();x.arc(lineX,y+28,13,0,Math.PI*2);x.fill();x.fillStyle=col;x.beginPath();x.arc(lineX,y+28,9,0,Math.PI*2);x.fill();
+    x.fillStyle=C.soft;x.beginPath();x.roundRect?x.roundRect(TX,y,W-TX-PAD,it.h,14):x.rect(TX,y,W-TX-PAD,it.h);x.fill();
+    x.fillStyle=col;x.fillRect(TX,y+14,4,it.h-28);
+    x.textAlign='left';x.fillStyle=C.ink;x.font=`700 24px ${F}`;x.fillText(e.ttl,TX+24,y+40);
+    if(e.news){const n=e.news,lab='NEWS2 '+n.total,bg=n.level==='high'?C.crit:(n.level==='low'?C.green:C.warn);x.font=`700 18px ${FM}`;const w=x.measureText(lab).width+20;x.fillStyle=bg;x.beginPath();x.roundRect?x.roundRect(W-PAD-20-w,y+18,w,30,8):x.rect(W-PAD-20-w,y+18,w,30);x.fill();x.fillStyle='#fff';x.fillText(lab,W-PAD-10-w,y+39)}
+    x.fillStyle=C.ink;x.font=`400 24px ${F}`;it.body.forEach((ln,k)=>x.fillText(ln,TX+24,y+76+k*32));
+    y+=it.h+18;});
+  // footer
+  x.fillStyle=C.line;x.fillRect(PAD,H-footH+20,W-2*PAD,2);
+  x.textAlign='left';x.fillStyle=C.mut;x.font=`500 18px ${F}`;x.fillText('Mitra 911 · On-call & Home Care Services',PAD,H-footH+56);
+  x.textAlign='right';x.fillText('Dibuat '+fDT(Date.now())+(p.team?.doctor?' · '+p.team.doctor:''),W-PAD,H-footH+56);
+  const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+  await saveBlob('Kronologi_'+(i.name||'pasien').replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10)+'.png',blob);
+  toast('Gambar kronologi dibuat');
 }
 
 /* ---------- render ---------- */
@@ -1130,7 +1186,7 @@ function sheet(title,body,onSave,saveLabel='Simpan'){
   $('#layer').innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheet-h"><h2>${esc(title)}</h2><button class="iconbtn" data-close aria-label="Tutup">${ic('x')}</button></div><form id="sf" novalidate><div class="sheet-b">${body}</div><div class="sheet-f"><button type="button" class="btn" data-close>Batal</button><button type="submit" class="btn pri">${ic('check')}${saveLabel}</button></div></form></div></div>`;
   const ov=$('#ov');ov.addEventListener('click',e=>{if(e.target===ov||e.target.closest('[data-close]'))closeSheet()});
   $('#sf').addEventListener('submit',e=>{e.preventDefault();if(onSave()!==false)closeSheet()});
-  setTimeout(()=>{const f=$('#sf input:not([type=hidden]):not([type=datetime-local]),#sf textarea');f&&f.focus()},60);
+  setTimeout(()=>{const sf=$('#sf');if(!sf||sf.contains(document.activeElement))return;const f=$('#sf input:not([type=hidden]):not([type=datetime-local]),#sf textarea');f&&f.focus()},60);
 }
 const closeSheet=()=>{$('#layer').innerHTML=''};
 const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
@@ -1138,7 +1194,7 @@ const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
 function vitalSheet(pid,existing){
   const p=getP(pid);const v=existing||{};
   const vi=(id,l,u,ph,step)=>`<div class="vin" data-k="${id}"><label for="v_${id}">${l}<span>${u}</span></label><input id="v_${id}" type="number" inputmode="decimal" step="${step||1}" placeholder="${ph}" value="${esc(v[id]??'')}"></div>`;
-  sheet('Input TTV — '+p.identity.name,`
+  sheet((existing?'Edit TTV — ':'Input TTV — ')+p.identity.name,`
    <div class="f"><label for="v_t">Waktu pengukuran</label><input id="v_t" type="datetime-local" value="${toLocalInput(v.t||Date.now())}"></div>
    <div class="vgrid">
     <div class="vin" data-k="sbp"><label>TD<span>mmHg</span></label><div class="bp"><input id="v_sbp" type="number" inputmode="numeric" placeholder="120" value="${esc(v.sbp??'')}" aria-label="Sistolik"><span>/</span><input id="v_dbp" type="number" inputmode="numeric" placeholder="80" value="${esc(v.dbp??'')}" aria-label="Diastolik"></div></div>
@@ -1191,14 +1247,14 @@ function actSheet(p,ex){const x=ex||{};SH.items=new Set(x.items||[]);
    const lp=getP(p.id)||p,le=ex&&lp.actions.find(a=>a.id===ex.id);le?Object.assign(le,rec):lp.actions.push(rec);save();toast(rec.t<p.createdAt-60000?'Tersimpan — perhatian: jam tindakan lebih awal dari jam tiba pasien':'Tindakan tersimpan');render()});
   $('#sf').addEventListener('click',e=>{const c=e.target.closest('[data-item]');if(c){const k=c.dataset.item;SH.items.has(k)?SH.items.delete(k):SH.items.add(k);c.classList.toggle('on')}});
 }
-function finishSheet(p){
-  sheet('Selesaikan penanganan',`
-   <div class="f"><label for="o_type">Hasil penanganan</label><select id="o_type">${Object.entries(OUTCOMES).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></div>
-   <div class="f"><label for="o_dest">RS / fasilitas tujuan (bila dirujuk)</label><input id="o_dest" placeholder="mis. RS … IGD"></div>
-   <div class="f"><label for="o_t">Waktu selesai</label><input id="o_t" type="datetime-local" value="${toLocalInput(Date.now())}"></div>
-   <div class="f"><label for="o_note">Catatan akhir</label><textarea id="o_note" placeholder="Kondisi saat ditinggalkan, edukasi, serah terima"></textarea></div>`,()=>{
+function finishSheet(p){const o=p.outcome||{},ed=!!p.outcome;
+  sheet(ed?'Edit hasil penanganan':'Selesaikan penanganan',`
+   <div class="f"><label for="o_type">Hasil penanganan</label><select id="o_type">${Object.entries(OUTCOMES).map(([k,l])=>`<option value="${k}" ${o.type===k?'selected':''}>${l}</option>`).join('')}</select></div>
+   <div class="f"><label for="o_dest">RS / fasilitas tujuan (bila dirujuk)</label><input id="o_dest" value="${esc(o.dest||'')}" placeholder="mis. RS … IGD"></div>
+   <div class="f"><label for="o_t">Waktu selesai</label><input id="o_t" type="datetime-local" value="${toLocalInput(o.t||Date.now())}"></div>
+   <div class="f"><label for="o_note">Catatan akhir</label><textarea id="o_note" placeholder="Kondisi saat ditinggalkan, edukasi, serah terima">${esc(o.note||'')}</textarea></div>`,()=>{
    p=getP(p.id)||p;p.outcome={t:fromLocalInput(val('o_t')),type:val('o_type'),dest:val('o_dest'),note:val('o_note')};p.status='selesai';
-   if(MON.id===p.id)stopMon();save();toast('Penanganan selesai');render()},'Selesaikan');
+   if(MON.id===p.id)stopMon();save();toast(ed?'Hasil penanganan diperbarui':'Penanganan selesai');render()},ed?'Simpan':'Selesaikan');
 }
 function confirmSheet(title,msg,label,fn){
   $('#layer').innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-modal="true" style="width:min(440px,100%)"><div class="sheet-h"><h2>${esc(title)}</h2></div><div class="sheet-b"><p style="margin:0">${msg}</p></div><div class="sheet-f"><button class="btn" data-close>Batal</button><button class="btn danger" id="cok">${esc(label)}</button></div></div></div>`;
@@ -1273,6 +1329,12 @@ document.addEventListener('click',e=>{
   if(d.delv&&p){return confirmSheet('Hapus TTV?','Data TTV ini akan dihapus.','Hapus',()=>{const lp=getP(p.id)||p;lp.vitals=lp.vitals.filter(v=>v.id!==d.delv);lp.delIds=[...(lp.delIds||[]),d.delv];save();render()})}
   if(d.deladv&&p){return confirmSheet('Hapus advice?','Advice dokter ini akan dihapus.','Hapus',()=>{const lp=getP(p.id)||p;lp.advice=lp.advice.filter(v=>v.id!==d.deladv);lp.delIds=[...(lp.delIds||[]),d.deladv];save();render()})}
   if(d.delact&&p){return confirmSheet('Hapus tindakan?','Catatan tindakan ini akan dihapus.','Hapus',()=>{const lp=getP(p.id)||p;lp.actions=lp.actions.filter(v=>v.id!==d.delact);lp.delIds=[...(lp.delIds||[]),d.delact];save();render()})}
+  if(d.tledit&&p){const [k,id]=d.tledit.split(':');
+    if(k==='start')return go('form',{id:p.id});
+    if(k==='end')return finishSheet(p);
+    if(k==='v'){const v=p.vitals.find(x=>x.id===id);return v&&vitalSheet(p.id,v)}
+    if(k==='d'){const x=p.advice.find(a=>a.id===id);return x&&advSheet(p,x)}
+    if(k==='a'){const x=p.actions.find(a=>a.id===id);return x&&actSheet(p,x)}}
   if(d.edadv&&p)return advSheet(p,p.advice.find(x=>x.id===d.edadv));
   if(d.edact&&p)return actSheet(p,p.actions.find(x=>x.id===d.edact));
   switch(d.act){
@@ -1287,6 +1349,7 @@ document.addEventListener('click',e=>{
     case 'syncNow':return sync(true);
     case 'srvCopy':{const show=()=>{const ta=$('#srvcode');ta.hidden=false;ta.focus();ta.select();toast('Salin manual teks yang terpilih')};try{navigator.clipboard.writeText(SERVER_CODE).then(()=>toast('Kode Apps Script disalin'),show)}catch(err){show()}return}
     case 'delP':return confirmSheet('Hapus pasien ini?','Data <b>'+esc(p.identity.name)+'</b> beserta TTV, advice, dan tindakannya akan dihapus'+(srv()?' dari perangkat ini dan dari spreadsheet tim':'')+'.','Hapus pasien',()=>{if(MON.id===p.id)stopMon();DB.patients=DB.patients.filter(x=>x.id!==p.id);save();toast('Pasien dihapus');go('list',{id:null})});
+    case 'tlpng':toast('Menyiapkan gambar…');exportTimelinePng(p).catch(err=>toast('Gagal membuat PNG: '+err.message));return;
     case 'docx':try{exportDocx(buildResume(p,DB.settings.resumeLang||'en'));toast('Laporan Word dibuat')}catch(err){toast('Gagal membuat Word: '+err.message)}return;
     case 'pdf':toast('Menyiapkan PDF…');exportPdf(buildResume(p,DB.settings.resumeLang||'en')).then(()=>toast('Laporan PDF dibuat'),err=>toast('Gagal membuat PDF: '+err.message));return;
     case 'addAdv':return advSheet(p);
