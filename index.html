@@ -372,7 +372,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.13-19';
+const APP_VERSION='v2026.10.13-20';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -994,10 +994,26 @@ function resumeHTML(R){
 }
 
 /* ---- save helper ---- */
+const isTouch=()=>{try{return matchMedia('(pointer:coarse)').matches||/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)}catch(e){return false}};
+function dlAnchor(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}
+async function shareFile(name,blob){const f=new File([blob],name,{type:blob.type});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return true}return false}
+/* Di HP: tampilkan file di layar dengan tombol Bagikan / Simpan. Di laptop: unduh langsung. */
 async function saveBlob(name,blob){
-  const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-  if(ios&&navigator.canShare){try{const f=new File([blob],name,{type:blob.type});if(navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==='AbortError')return}}
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+  if(!isTouch()){dlAnchor(name,blob);toast('Tersimpan di folder Downloads: '+name);return}
+  {const t=$('.toast');t&&t.remove()}
+  const isImg=/^image\//.test(blob.type);
+  const url=isImg?await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob)}):'';
+  const canShare=(()=>{try{return !!(navigator.canShare&&navigator.canShare({files:[new File([blob],name,{type:blob.type})]}))}catch(e){return false}})();
+  $('#layer').innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-modal="true" aria-label="File siap"><div class="sheet-h"><h2>File siap</h2><button class="iconbtn" data-close aria-label="Tutup">${ic('x')}</button></div>
+   <div class="sheet-b" style="align-items:center">
+    ${isImg?`<img src="${url}" alt="${esc(name)}" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
+      <p class="small muted" style="margin:0;text-align:center">Atau <b>tekan lama gambar</b> → <i>Simpan gambar / Download image</i>.</p>`:`<div class="empty" style="padding:12px">${ic('doc')}<b>${esc(name)}</b></div>`}
+    <p class="xs muted" style="margin:0;text-align:center;overflow-wrap:anywhere">${esc(name)}</p>
+   </div>
+   <div class="sheet-f">${canShare?`<button class="btn go" id="fsShare">${ic('install',16)}Bagikan / WhatsApp</button>`:''}<button class="btn pri" id="fsSave">${ic('install',16)}Simpan ke HP</button></div></div></div>`;
+  const ov=$('#ov');ov.addEventListener('click',e=>{if(e.target===ov||e.target.closest('[data-close]'))closeSheet()});
+  const sh=$('#fsShare');sh&&sh.addEventListener('click',async()=>{try{await shareFile(name,blob)}catch(e){if(e&&e.name!=='AbortError')toast('Tidak bisa membagikan: '+e.message)}});
+  $('#fsSave').addEventListener('click',()=>{dlAnchor(name,blob);toast('Disimpan ke folder Download: '+name)});
 }
 const b64bytes=d=>{const s=atob(d.split(',')[1]);const u=new Uint8Array(s.length);for(let k=0;k<s.length;k++)u[k]=s.charCodeAt(k);return u};
 
@@ -1158,7 +1174,7 @@ async function exportTimelinePng(p){
   x.textAlign='right';x.fillText('Dibuat '+fDT(Date.now())+(p.team?.doctor?' · '+p.team.doctor:''),W-PAD,H-footH+56);
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
   await saveBlob('Kronologi_'+(i.name||'pasien').replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10)+'.png',blob);
-  toast('Gambar kronologi dibuat');
+  
 }
 
 /* ---------- render ---------- */
@@ -1350,8 +1366,8 @@ document.addEventListener('click',e=>{
     case 'srvCopy':{const show=()=>{const ta=$('#srvcode');ta.hidden=false;ta.focus();ta.select();toast('Salin manual teks yang terpilih')};try{navigator.clipboard.writeText(SERVER_CODE).then(()=>toast('Kode Apps Script disalin'),show)}catch(err){show()}return}
     case 'delP':return confirmSheet('Hapus pasien ini?','Data <b>'+esc(p.identity.name)+'</b> beserta TTV, advice, dan tindakannya akan dihapus'+(srv()?' dari perangkat ini dan dari spreadsheet tim':'')+'.','Hapus pasien',()=>{if(MON.id===p.id)stopMon();DB.patients=DB.patients.filter(x=>x.id!==p.id);save();toast('Pasien dihapus');go('list',{id:null})});
     case 'tlpng':toast('Menyiapkan gambar…');exportTimelinePng(p).catch(err=>toast('Gagal membuat PNG: '+err.message));return;
-    case 'docx':try{exportDocx(buildResume(p,DB.settings.resumeLang||'en'));toast('Laporan Word dibuat')}catch(err){toast('Gagal membuat Word: '+err.message)}return;
-    case 'pdf':toast('Menyiapkan PDF…');exportPdf(buildResume(p,DB.settings.resumeLang||'en')).then(()=>toast('Laporan PDF dibuat'),err=>toast('Gagal membuat PDF: '+err.message));return;
+    case 'docx':try{exportDocx(buildResume(p,DB.settings.resumeLang||'en'))}catch(err){toast('Gagal membuat Word: '+err.message)}return;
+    case 'pdf':toast('Menyiapkan PDF…');exportPdf(buildResume(p,DB.settings.resumeLang||'en')).then(()=>{},err=>toast('Gagal membuat PDF: '+err.message));return;
     case 'addAdv':return advSheet(p);
     case 'addAct':return actSheet(p);
     case 'finish':return finishSheet(p);
