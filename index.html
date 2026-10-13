@@ -362,7 +362,8 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const srv=()=>(DB.settings.serverUrl||'').trim();
+const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
+const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
 function markDirty(id){if(!DB.sync.dirty.includes(id))DB.sync.dirty.push(id)}
 /* dipanggil di save(): cari pasien yang berubah / terhapus */
@@ -411,7 +412,7 @@ async function sync(manual){
   if(changed&&!$('#ov')&&R.view!=='form'&&!typing)render();else syncUI();
 }
 function syncLabel(){
-  if(!srv())return{cls:'off',t:'Server belum diatur',s:'Data hanya di perangkat ini'};
+  if(!srv())return{cls:'off',t:'Belum tersambung ke tim',s:'Isi kunci tim di Pengaturan'};
   if(IN_FRAME)return{cls:'off',t:'Mode pratinjau',s:'Sinkron aktif di aplikasi terpasang'};
   const n=pending();
   if(SYNC.busy)return{cls:'busy',t:'Menyinkron…',s:n?n+' perubahan dikirim':''};
@@ -425,16 +426,16 @@ function syncUI(){
   const d=$('#topSync');if(d){d.className='tsync '+L.cls;d.title=L.t+(L.s?' — '+L.s:'')}
 }
 async function pingServer(){
-  const url=val('ssurl'),key=val('sskey');if(!url||!key){toast('Isi alamat server dan kunci');return}
-  DB.settings.serverUrl=url;DB.settings.serverKey=key;
-  try{const j=await api({action:'ping'});DB.settings.sheetUrl=j.sheetUrl||'';persist();toast('Tersambung ✓ '+j.patients+' pasien di spreadsheet');render()}catch(err){toast('Belum tersambung: '+(err.message==='Failed to fetch'?'periksa alamat & akses “Siapa saja”':err.message))}
+  const url=val('ssurl'),key=val('sskey');if(!key){toast('Isi kunci tim dulu');return}
+  const old={u:DB.settings.serverUrl,k:DB.settings.serverKey};DB.settings.serverUrl=url;DB.settings.serverKey=key;DB.settings.deviceName=val('ssdev');
+  try{const j=await api({action:'ping'});DB.settings.sheetUrl=j.sheetUrl||'';persist();toast('Tersambung ✓ '+j.patients+' pasien di spreadsheet');render()}catch(err){DB.settings.serverUrl=old.u;DB.settings.serverKey=old.k;toast('Belum tersambung: '+(err.message==='Failed to fetch'?'periksa internet / alamat server':err.message))}
 }
 function connectServer(){
-  const url=val('ssurl'),key=val('sskey'),first=!DB.settings.serverUrl;
+  const was=!!srv(),url=val('ssurl'),key=val('sskey');
   DB.settings.serverUrl=url;DB.settings.serverKey=key;DB.settings.deviceName=val('ssdev');
-  ensureSync();
-  if(url&&first){DB.patients.forEach(p=>{if(!p.demo){p.updatedAt=p.updatedAt||Date.now();markDirty(p.id)}});DB.sync.lastSync=0}
-  persist();toast(url?'Pengaturan server tersimpan':'Server diputus — data hanya di perangkat');render();if(url)sync(true);
+  ensureSync();const on=!!srv();
+  if(on&&!was){DB.patients.forEach(p=>{if(!p.demo){p.updatedAt=p.updatedAt||Date.now();markDirty(p.id)}});DB.sync.lastSync=0}
+  persist();toast(on?'Tersimpan — menyambungkan ke spreadsheet tim':'Kunci dikosongkan — data hanya di perangkat');render();if(on)sync(true);
 }
 setInterval(()=>{if(document.visibilityState==='visible')sync(false)},5*60000);
 setInterval(syncUI,30000);
@@ -765,19 +766,19 @@ function vSet(){const s=DB.settings,demo=DB.patients.filter(p=>p.demo).length;
     <p class="small muted" style="margin:0">Semua data pasien tersimpan di perangkat ini (browser). Lakukan cadangan berkala dan simpan di tempat aman.</p>
     <div class="row">${!IN_FRAME?`<button class="btn" data-act="backup">${ic('install')}Cadangkan (JSON)</button><button class="btn" data-act="csv">${ic('doc')}Ekspor CSV</button>`:''}<label class="btn">${ic('doc')}Pulihkan dari cadangan<input type="file" id="restore" accept=".json,application/json" hidden></label></div>
     ${demo?`<div class="newsbar"><span><b>${demo}</b> pasien contoh masih ada.</span><button class="btn sm danger" data-act="clearDemo">Hapus contoh</button></div>`:''}
-    <div class="newsbar"><span>${s.serverUrl?'Hapus data di perangkat ini saja (spreadsheet tidak terhapus).':'Hapus seluruh data di perangkat ini.'}</span><button class="btn sm danger" data-act="wipe">Hapus semua</button></div>
+    <div class="newsbar"><span>${srv()?'Hapus data di perangkat ini saja (spreadsheet tidak terhapus).':'Hapus seluruh data di perangkat ini.'}</span><button class="btn sm danger" data-act="wipe">Hapus semua</button></div>
    </div>
    <div class="card fsec" style="grid-column:1/-1"><h3>Server & sinkronisasi (Google Spreadsheet)</h3>
     <div class="syncbox"></div>
     <p class="small muted" style="margin:0">Data tetap tersimpan di HP dan bisa dipakai tanpa sinyal. Bila online, perubahan otomatis dikirim ke spreadsheet tim dan data dari anggota tim lain ikut diterima. Server yang sama dipakai untuk terjemahan otomatis.</p>
     <div class="fgrid">
-     <div class="f"><label for="ssurl">Alamat Web App (URL /exec)</label><input id="ssurl" value="${esc(s.serverUrl||'')}" placeholder="https://script.google.com/macros/s/…/exec" inputmode="url" autocomplete="off"></div>
-     <div class="f"><label for="sskey">Kunci (sama dengan KUNCI di skrip)</label><input id="sskey" type="password" value="${esc(s.serverKey||'')}" autocomplete="off"></div>
+     <div class="f"><label for="sskey">Kunci tim</label><input id="sskey" type="password" value="${esc(s.serverKey||'')}" autocomplete="off" placeholder="Minta ke admin tim"></div>
      <div class="f"><label for="ssdev">Nama petugas / perangkat</label><input id="ssdev" value="${esc(s.deviceName||'')}" placeholder="mis. Ns. Rina – HP"><span class="hint">Tercatat di kolom “Diubah Oleh” dan sheet Log.</span></div>
+     <details class="f full"><summary class="small muted" style="cursor:pointer">Alamat server (opsional — sudah terisi otomatis)</summary><input id="ssurl" style="margin-top:8px" value="${esc(s.serverUrl||'')}" placeholder="${esc(DEFAULT_SERVER)}" inputmode="url" autocomplete="off"><span class="hint">Kosongkan untuk memakai server tim Mitra 911. Isi hanya bila admin memberi alamat baru.</span></details>
     </div>
-    <div class="row"><button class="btn pri" data-act="srvSave">${ic('check')}Simpan & sambungkan</button><button class="btn" data-act="srvPing">Tes koneksi</button>${s.serverUrl&&!IN_FRAME?`<button class="btn" data-act="syncNow">${ic('sync')}Sinkron sekarang</button>`:''}${s.sheetUrl?`<a class="btn" href="${esc(s.sheetUrl)}" target="_blank" rel="noopener">${ic('doc')}Buka spreadsheet</a>`:''}<button class="btn" data-act="srvCopy">${ic('doc')}Salin kode Apps Script</button></div>
+    <div class="row"><button class="btn pri" data-act="srvSave">${ic('check')}Simpan & sambungkan</button><button class="btn" data-act="srvPing">Tes koneksi</button>${srv()&&!IN_FRAME?`<button class="btn" data-act="syncNow">${ic('sync')}Sinkron sekarang</button>`:''}${s.sheetUrl?`<a class="btn" href="${esc(s.sheetUrl)}" target="_blank" rel="noopener">${ic('doc')}Buka spreadsheet</a>`:''}<button class="btn" data-act="srvCopy">${ic('doc')}Salin kode Apps Script</button></div>
     <textarea id="srvcode" hidden readonly style="width:100%;min-height:160px;font-family:var(--f-mono);font-size:12px">${esc(SERVER_CODE)}</textarea>
-    <ol class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px"><li>Buat Google Spreadsheet baru → menu <b>Ekstensi → Apps Script</b>.</li><li>Tempel kode skrip, ganti <b>KUNCI</b> dengan kata sandi tim, simpan.</li><li>Jalankan fungsi <b>setup</b> sekali dan izinkan akses.</li><li><b>Terapkan → Deployment baru → Aplikasi web</b>, jalankan sebagai <i>Saya</i>, akses <i>Siapa saja</i>.</li><li>Tempel URL /exec dan kunci di atas, tekan <b>Simpan & sambungkan</b>. Ulangi di HP anggota tim.</li></ol>
+    <ol class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px"><li>Buat Google Spreadsheet baru → menu <b>Ekstensi → Apps Script</b>.</li><li>Tempel kode skrip, ganti <b>KUNCI</b> dengan kata sandi tim, simpan.</li><li>Jalankan fungsi <b>setup</b> sekali dan izinkan akses.</li><li><b>Terapkan → Deployment baru → Aplikasi web</b>, jalankan sebagai <i>Saya</i>, akses <i>Siapa saja</i>.</li><li>Anggota tim cukup mengisi <b>kunci</b> dan <b>nama</b>, lalu tekan <b>Simpan & sambungkan</b>.</li></ol>
    </div>
    <div class="card fsec"><h3>Pasang di HP / laptop</h3>
     <div id="installBox">${deferredPrompt?`<button class="btn go" data-act="install">${ic('install')}Pasang aplikasi</button>`:''}</div>
