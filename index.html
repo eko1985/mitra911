@@ -251,6 +251,7 @@ td.w{color:var(--warn);font-weight:700}td.c{color:var(--crit);font-weight:700}
 .f input,.f select,.f textarea{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:0;min-width:0}
 .f textarea{min-height:84px;resize:vertical}
 .f input:focus,.f select:focus,.f textarea:focus{border-color:var(--navy);background:var(--surface)}
+.f input[readonly]{color:var(--muted);cursor:default}
 .f .hint{font-size:11.5px;color:var(--muted)}
 .vgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 @media (max-width:560px){.vgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -335,8 +336,10 @@ const ageOf=p=>{const i=p.identity;if(i.dob){const d=new Date(i.dob),n=new Date(
 const initials=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 
 const COUNTRIES=[["Afrika Selatan", "ZA", "South Africa", "South African"], ["Amerika Serikat", "US", "the United States", "American"], ["Arab Saudi", "SA", "Saudi Arabia", "Saudi"], ["Argentina", "AR", "Argentina", "Argentine"], ["Australia", "AU", "Australia", "Australian"], ["Austria", "AT", "Austria", "Austrian"], ["Bangladesh", "BD", "Bangladesh", "Bangladeshi"], ["Belanda", "NL", "the Netherlands", "Dutch"], ["Belgia", "BE", "Belgium", "Belgian"], ["Brasil", "BR", "Brazil", "Brazilian"], ["Brunei", "BN", "Brunei", "Bruneian"], ["Ceko", "CZ", "the Czech Republic", "Czech"], ["Denmark", "DK", "Denmark", "Danish"], ["Filipina", "PH", "the Philippines", "Filipino"], ["Finlandia", "FI", "Finland", "Finnish"], ["Hong Kong", "HK", "Hong Kong", "Hong Kong"], ["Hungaria", "HU", "Hungary", "Hungarian"], ["India", "IN", "India", "Indian"], ["Indonesia", "ID", "Indonesia", "Indonesian"], ["Inggris", "GB", "the United Kingdom", "British"], ["Irlandia", "IE", "Ireland", "Irish"], ["Israel", "IL", "Israel", "Israeli"], ["Italia", "IT", "Italy", "Italian"], ["Jepang", "JP", "Japan", "Japanese"], ["Jerman", "DE", "Germany", "German"], ["Kamboja", "KH", "Cambodia", "Cambodian"], ["Kanada", "CA", "Canada", "Canadian"], ["Korea Selatan", "KR", "South Korea", "South Korean"], ["Malaysia", "MY", "Malaysia", "Malaysian"], ["Meksiko", "MX", "Mexico", "Mexican"], ["Mesir", "EG", "Egypt", "Egyptian"], ["Norwegia", "NO", "Norway", "Norwegian"], ["Pakistan", "PK", "Pakistan", "Pakistani"], ["Polandia", "PL", "Poland", "Polish"], ["Portugal", "PT", "Portugal", "Portuguese"], ["Prancis", "FR", "France", "French"], ["Qatar", "QA", "Qatar", "Qatari"], ["Rusia", "RU", "Russia", "Russian"], ["Selandia Baru", "NZ", "New Zealand", "New Zealand"], ["Singapura", "SG", "Singapore", "Singaporean"], ["Spanyol", "ES", "Spain", "Spanish"], ["Swedia", "SE", "Sweden", "Swedish"], ["Swiss", "CH", "Switzerland", "Swiss"], ["Taiwan", "TW", "Taiwan", "Taiwanese"], ["Thailand", "TH", "Thailand", "Thai"], ["Tiongkok", "CN", "China", "Chinese"], ["Timor Leste", "TL", "Timor-Leste", "Timorese"], ["Turki", "TR", "Turkey", "Turkish"], ["Ukraina", "UA", "Ukraine", "Ukrainian"], ["Uni Emirat Arab", "AE", "the United Arab Emirates", "Emirati"], ["Vietnam", "VN", "Vietnam", "Vietnamese"], ["Yunani", "GR", "Greece", "Greek"]];
-const COMPLAINTS=[["fever", "Fever", "Demam"], ["headache", "Headache", "Sakit kepala"], ["dizziness", "Dizziness", "Pusing"], ["weakness", "Weakness / fatigue", "Lemas"], ["fainting", "Fainting", "Pingsan"], ["nausea", "Nausea", "Mual"], ["vomiting", "Vomiting", "Muntah"], ["diarrhea", "Diarrhea", "Diare"], ["abdominal_pain", "Abdominal pain", "Nyeri perut"], ["constipation", "Constipation", "Sembelit"], ["dehydration", "Dehydration", "Dehidrasi"], ["cough", "Cough", "Batuk"], ["sore_throat", "Sore throat", "Nyeri tenggorokan"], ["runny_nose", "Runny nose", "Pilek"], ["sob", "Shortness of breath", "Sesak napas"], ["chest_pain", "Chest pain", "Nyeri dada"], ["palpitations", "Palpitations", "Berdebar-debar"], ["high_bp", "High blood pressure", "Tekanan darah tinggi"], ["back_pain", "Back pain", "Nyeri punggung"], ["joint_pain", "Joint pain", "Nyeri sendi"], ["muscle_pain", "Muscle pain", "Nyeri otot"], ["rash", "Skin rash", "Ruam kulit"], ["itching", "Itching", "Gatal"], ["allergy", "Allergic reaction", "Reaksi alergi"], ["insect_bite", "Insect bite / sting", "Gigitan / sengatan serangga"], ["animal_bite", "Animal bite / scratch", "Gigitan / cakaran hewan"], ["wound", "Wound / laceration", "Luka / luka robek"], ["sprain", "Sprain", "Keseleo"], ["fall", "Fall injury", "Cedera karena jatuh"], ["burn", "Burn", "Luka bakar"], ["sunburn", "Sunburn", "Kulit terbakar matahari"], ["toothache", "Toothache", "Sakit gigi"], ["ear_pain", "Ear pain", "Nyeri telinga"], ["eye_irritation", "Eye irritation / red eye", "Iritasi / mata merah"], ["dysuria", "Painful urination", "Nyeri saat BAK"], ["insomnia", "Insomnia", "Sulit tidur"], ["anxiety", "Anxiety", "Cemas"], ["intoxication", "Alcohol intoxication", "Mabuk alkohol"], ["motion_sickness", "Motion sickness", "Mabuk perjalanan"], ["jet_lag", "Jet lag", "Jet lag"], ["med_refill", "Medication refill", "Minta obat rutin"], ["fit_to_fly", "Fit-to-fly assessment", "Pemeriksaan fit to fly"]];
+const HOTELS=["THE 1O1 Yogyakarta Tugu", "Abadi Hotel Malioboro", "The Alana Yogyakarta Hotel & Convention Center", "Amanjiwo (Magelang)", "Cavinton Hotel Yogyakarta", "Crystal Lotus Hotel Yogyakarta", "Eastparc Hotel Yogyakarta", "eL Hotel Royale Yogyakarta Malioboro", "Grand Aston Yogyakarta", "Grand Inna Malioboro", "Grand Keisha Yogyakarta", "Grand Mercure Yogyakarta Adi Sucipto", "Grand Rohan Jogja", "Grand Senyum Malioboro", "Grand Zuri Malioboro", "Harper Mangkubumi Yogyakarta", "Horison Ultima Riss Malioboro", "Hyatt Regency Yogyakarta", "Indoluxe Hotel Jogjakarta", "Jambuluwuk Malioboro Hotel", "Kimaya Sudirman Yogyakarta by Harris", "Lafayette Boutique Hotel Yogyakarta", "Melia Purosani Yogyakarta", "Novotel Suites Yogyakarta Malioboro", "Novotel Yogyakarta", "The Phoenix Hotel Yogyakarta – MGallery", "Plataran Borobudur (Magelang)", "Platinum Adisucipto Hotel & Conference Center", "The Rich Jogja Hotel", "Royal Ambarrukmo Yogyakarta", "Royal Darmo Malioboro", "Sahid Raya Hotel & Convention Yogyakarta", "Hotel Santika Premiere Jogja", "Sheraton Mustika Yogyakarta Resort & Spa", "Swiss-Belboutique Yogyakarta", "Swiss-Belhotel Yogyakarta", "Hotel Tentrem Yogyakarta", "Hotel Tjokro Style Yogyakarta", "The Westlake Resort Yogyakarta", "Yogyakarta Marriott Hotel"];
+const COMPLAINTS=[["fever", "Fever", "Demam"], ["headache", "Headache", "Sakit kepala"], ["dizziness", "Dizziness", "Pusing"], ["weakness", "Generalized weakness", "Lemas"], ["fainting", "Fainting", "Pingsan"], ["nausea", "Nausea", "Mual"], ["vomiting", "Vomiting", "Muntah"], ["diarrhea", "Diarrhea", "Diare"], ["abdominal_pain", "Abdominal pain", "Nyeri perut"], ["constipation", "Constipation", "Sembelit"], ["dehydration", "Dehydration", "Dehidrasi"], ["cough", "Cough", "Batuk"], ["sore_throat", "Sore throat", "Nyeri tenggorokan"], ["runny_nose", "Runny nose", "Pilek"], ["sob", "Shortness of breath", "Sesak napas"], ["chest_pain", "Chest pain", "Nyeri dada"], ["palpitations", "Palpitations", "Berdebar-debar"], ["high_bp", "High blood pressure", "Tekanan darah tinggi"], ["back_pain", "Back pain", "Nyeri punggung"], ["joint_pain", "Joint pain", "Nyeri sendi"], ["muscle_pain", "Muscle pain", "Nyeri otot"], ["rash", "Skin rash", "Ruam kulit"], ["itching", "Itching", "Gatal"], ["allergy", "Allergic reaction", "Reaksi alergi"], ["insect_bite", "Insect bite / sting", "Gigitan / sengatan serangga"], ["animal_bite", "Animal bite / scratch", "Gigitan / cakaran hewan"], ["wound", "Wound / laceration", "Luka / luka robek"], ["sprain", "Sprain", "Keseleo"], ["fall", "Fall injury", "Cedera karena jatuh"], ["burn", "Burn", "Luka bakar"], ["sunburn", "Sunburn", "Kulit terbakar matahari"], ["toothache", "Toothache", "Sakit gigi"], ["ear_pain", "Ear pain", "Nyeri telinga"], ["eye_irritation", "Eye irritation / red eye", "Iritasi / mata merah"], ["dysuria", "Painful urination", "Nyeri saat BAK"], ["insomnia", "Insomnia", "Sulit tidur"], ["anxiety", "Anxiety", "Cemas"], ["intoxication", "Alcohol intoxication", "Mabuk alkohol"], ["motion_sickness", "Motion sickness", "Mabuk perjalanan"], ["jet_lag", "Jet lag", "Jet lag"], ["med_refill", "Medication refill", "Minta obat rutin"], ["fit_to_fly", "Fit-to-fly assessment", "Pemeriksaan fit to fly"]];
 const cmpL=(k,lang)=>{const c=COMPLAINTS.find(x=>x[0]===k);return c?(lang==='id'?c[2]:c[1]):k};
+const isNone=t=>/^\s*(-+|–|—|tidak ada|tdk ada|tidak|none|nil|no|disangkal|nka|nkda|n\/a)\s*\.?\s*$/i.test(String(t||''));
 const natList=(a,lang)=>a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+(lang==='id'?' dan ':' and ')+a[a.length-1];
 const chiefLabel=p=>{const it=(p.complaint.items||[]).map(k=>cmpL(k,'en'));return [it.join(', '),p.complaint.chief].filter(Boolean).join(' — ')};
 const flagOf=name=>{const c=COUNTRIES.find(x=>x[0].toLowerCase()===String(name||'').toLowerCase().trim());if(!c)return '';return String.fromCodePoint(...[...c[1]].map(ch=>127397+ch.charCodeAt(0)))};
@@ -728,18 +731,19 @@ function vForm(){
     ${(()=>{const known=COUNTRIES.some(x=>x[0]===i.nationality),other=i.nationality&&!known;return `<div class="f"><label for="fnatsel">Negara</label><select id="fnatsel"><option value="">– Pilih negara –</option>${COUNTRIES.map(x=>`<option value="${esc(x[0])}" ${x[0]===i.nationality?'selected':''}>${flagOf(x[0])} ${esc(x[0])} (${esc(x[2].replace(/^the /,''))})</option>`).join('')}<option value="__other" ${other?'selected':''}>Lainnya — ketik manual</option></select><input id="fnat" value="${esc(other?i.nationality:'')}" placeholder="Ketik nama negara" autocomplete="off" ${other?'':'hidden'} style="margin-top:6px"></div>`})()}
     <div class="f"><label for="fsex">Jenis kelamin</label><select id="fsex"><option value="">–</option><option value="L" ${i.sex==='L'?'selected':''}>Laki-laki (Male)</option><option value="P" ${i.sex==='P'?'selected':''}>Perempuan (Female)</option></select></div>
     ${f('fdob','Tanggal lahir',i.dob,{type:'date'})}
-    ${f('fage','Usia (bila tgl lahir tidak diketahui)',i.age,{im:'numeric',ph:'tahun'})}
+    ${f('fage','Usia (tahun)',i.dob?ageOf({identity:i}):i.age,{im:'numeric',ph:'otomatis dari tgl lahir',hint:'Terisi otomatis dari tanggal lahir; isi manual bila tgl lahir tidak diketahui'})}
     ${f('flang','Bahasa',i.lang,{ph:'mis. English'})}
     ${f('fallergy','Alergi obat / makanan',i.allergy,{ph:'Kosongkan bila tidak ada'})}
    </div></div>
    <div class="card fsec"><h3><span class="no">2</span>Lokasi, kontak & penjamin</h3><div class="fgrid">
-    ${f('fhotel','Nama hotel',i.hotel,{req:true,list:'hotlist'})}
+    ${(()=>{const used=[...new Set(DB.patients.map(x=>x.identity.hotel).filter(h=>h&&!HOTELS.includes(h)))].sort();const all=[...HOTELS,...used];const known=all.includes(i.hotel),other=i.hotel&&!known;
+      return `<div class="f"><label for="fhotelsel">Nama hotel <span class="req">*</span></label><select id="fhotelsel"><option value="">– Pilih hotel –</option>${HOTELS.map(h=>`<option ${h===i.hotel?'selected':''}>${esc(h)}</option>`).join('')}${used.length?`<optgroup label="Pernah dikunjungi">${used.map(h=>`<option ${h===i.hotel?'selected':''}>${esc(h)}</option>`).join('')}</optgroup>`:''}<option value="__other" ${other?'selected':''}>Lainnya — ketik manual</option></select><input id="fhotel" value="${esc(other?i.hotel:'')}" placeholder="Ketik nama hotel / villa / alamat" autocomplete="off" ${other?'':'hidden'} style="margin-top:6px"></div>`})()}
     ${f('froom','No. kamar',i.room,{ph:'mis. 412'})}
     ${f('fphone','Telepon / WhatsApp',i.phone,{type:'tel',ph:'+61 …'})}
     ${f('femail','Email',i.email,{type:'email'})}
     ${f('fcomp','Pendamping / kontak darurat',i.companion)}
     ${f('fins','Asuransi perjalanan / no. polis',i.insurance)}
-   </div><datalist id="hotlist">${[...new Set(DB.patients.map(x=>x.identity.hotel).filter(Boolean))].map(h=>`<option value="${esc(h)}">`).join('')}</datalist></div>
+   </div></div>
    <div class="card fsec"><h3><span class="no">3</span>Keluhan & riwayat</h3><div class="fgrid">
     <div class="f full"><label for="fcsel">Keluhan utama <span class="req">*</span> <span style="font-weight:500">(pilih satu atau lebih, English)</span></label><select id="fcsel"><option value="">+ Pilih keluhan…</option>${COMPLAINTS.map(x=>`<option value="${x[0]}">${esc(x[1])} — ${esc(x[2])}</option>`).join('')}</select><div class="chips" id="fcchips"></div></div>
     ${f('fchief','Keterangan keluhan (opsional, bebas)',c.chief,{full:true,ta:true,ph:'mis. sejak 3 hari, BAB cair 6x/hari, setelah makan seafood'})}
@@ -856,7 +860,7 @@ const SERVER_CODE="/**\n * MITRA 911 ONCALL \u2014 Server Google Spreadsheet + P
 const RL={
  en:{title:'MEDICAL REPORT',sub:'Laporan Pemeriksaan Medis',ref:'Ref. No.',
   s1:'Patient Information',s2:'Visit Details',s3:'Clinical Summary',s4:'Chief Complaint & History',s5:'Vital Signs',s6:'Assessment / Diagnosis',s7:'Treatment & Medication',s8:'Nursing Procedures',s9:'Physician Instructions & Follow-up',s10:'Disposition',s11:'Additional Notes',
-  name:'Full name',pass:'Passport no.',nat:'Country',dob:'Date of birth / Age',sex:'Sex',lang:'Language',hotel:'Hotel / Room',phone:'Phone',ins:'Insurance',allergy:'Allergy',comp:'Companion',
+  name:'Full name',pass:'Passport no.',nat:'Country',dob:'Date of birth / Age',age:'Age',noneVal:'None',sex:'Sex',lang:'Language',hotel:'Hotel',phone:'Phone',ins:'Insurance',allergy:'Allergy',comp:'Companion',
   date:'Visit date',arr:'Arrival time',end:'Completion time',dur:'Duration',doc:'Attending physician',nurse:'Nurse',
   cc:'Chief complaint',ccDet:'Complaint details',onset:'Onset',pain:'Pain score',notes:'Notes',hist:'Medical history',meds:'Regular medication',
   time:'Time',bp:'BP',hr:'HR',rr:'RR',temp:'Temp',spo2:'SpO₂',o2:'O₂',avpu:'AVPU',news:'NEWS2',note:'Note',
@@ -867,7 +871,7 @@ const RL={
   out:{hotel:'Treated at hotel / improved',rujuk:'Referred to hospital',evak:'Medical evacuation',tolak:'Refused treatment (against medical advice)',lain:'Other'}},
  id:{title:'LAPORAN PEMERIKSAAN MEDIS',sub:'Medical Report',ref:'No. Ref.',
   s1:'Identitas Pasien',s2:'Data Kunjungan',s3:'Ringkasan Klinis',s4:'Keluhan & Riwayat',s5:'Tanda-Tanda Vital',s6:'Diagnosis / Kesan Klinis',s7:'Terapi & Obat',s8:'Tindakan Keperawatan',s9:'Instruksi Dokter & Tindak Lanjut',s10:'Hasil Penanganan',s11:'Catatan Tambahan',
-  name:'Nama lengkap',pass:'No. paspor',nat:'Negara',dob:'Tgl lahir / Usia',sex:'Jenis kelamin',lang:'Bahasa',hotel:'Hotel / Kamar',phone:'Telepon',ins:'Asuransi',allergy:'Alergi',comp:'Pendamping',
+  name:'Nama lengkap',pass:'No. paspor',nat:'Negara',dob:'Tgl lahir / Usia',age:'Usia',noneVal:'Tidak ada',sex:'Jenis kelamin',lang:'Bahasa',hotel:'Hotel',phone:'Telepon',ins:'Asuransi',allergy:'Alergi',comp:'Pendamping',
   date:'Tanggal kunjungan',arr:'Waktu tiba',end:'Waktu selesai',dur:'Durasi',doc:'Dokter',nurse:'Perawat',
   cc:'Keluhan utama',ccDet:'Keterangan keluhan',onset:'Onset',pain:'Skala nyeri',notes:'Catatan',hist:'Riwayat penyakit',meds:'Obat rutin',
   time:'Jam',bp:'TD',hr:'Nadi',rr:'RR',temp:'Suhu',spo2:'SpO₂',o2:'O₂',avpu:'AVPU',news:'NEWS2',note:'Catatan',
@@ -909,36 +913,41 @@ function buildResume(p,lang){
     const dem=natEn(i.nationality),sx=i.sex==='L'?'male':i.sex==='P'?'female':'';
     const desc=[a!=null?`${a}-year-old`:'',dem,sx||(a!=null||dem?'patient':'')].filter(Boolean).join(' ');
     const who=`${i.name}${desc?`, a ${desc}${!dem&&i.nationality?` from ${countryEn(i.nationality)}`:''},`:''}`;
-    nar=`${who.replace(/,$/,'')} (passport ${i.passport||'n/a'})${i.hotel?`, staying at ${i.hotel}${i.room?', room '+i.room+',':''}`:''}${i.hotel&&i.room?'':','} was seen by the Mitra 911 on-call team on ${dLong(p.createdAt,'en')} at ${fTime(p.createdAt)}, presenting with ${presentTxt||'—'}.`;
-    if(i.allergy)nar+=` Known allergy: ${i.allergy}.`;
+    nar=`${who.replace(/,$/,'')}${i.passport?` (passport ${i.passport})`:''}${i.hotel?`, staying at ${i.hotel}${i.room?', room '+i.room+',':''}`:''}${i.hotel&&i.room?'':','} was seen by the Mitra 911 on-call team on ${dLong(p.createdAt,'en')} at ${fTime(p.createdAt)}, presenting with ${presentTxt||'—'}.`;
+    if(i.allergy&&!isNone(i.allergy)&&!isNone(p.identity.allergy))nar+=` Known allergy: ${i.allergy}.`;
     if(v0)nar+=` Initial vital signs: ${vStr(v0,L)}${news(v0)?`, NEWS2 score ${news(v0).total}`:''}.`;
     if(dxs.length)nar+=` Clinical assessment: ${dxs.join('; ')}.`;
-    if(items.length)nar+=` Management included ${items.join(', ').toLowerCase()}.`;
+    if(items.length)nar+=` Management included ${natList(items.map(lc1),'en')}.`;
     if(vN&&vN!==v0)nar+=` Latest vital signs at ${fTime(vN.t)}: ${vStr(vN,L)}${news(vN)?`, NEWS2 score ${news(vN).total}`:''}.`;
     nar+=po?` Outcome: ${L.out[po.type]||''}${po.dest?` (${po.dest})`:''}, completed at ${fTime(endT)} after ${durEn(endT-p.createdAt)}.`:' '+L.under;
   }else{
     const who=`${i.name}${a!=null?`, ${sexW.toLowerCase()} usia ${a} tahun`:''}${i.nationality?`, warga negara ${i.nationality}`:''}`;
-    nar=`${who} (paspor ${i.passport||'-'})${i.hotel?`, menginap di ${i.hotel}${i.room?' kamar '+i.room:''}`:''}, ditangani tim on call Mitra 911 pada ${dLong(p.createdAt,'id')} pukul ${fTime(p.createdAt)} dengan keluhan ${presentTxt||'—'}.`;
-    if(i.allergy)nar+=` Riwayat alergi: ${i.allergy}.`;
+    nar=`${who}${i.passport?` (paspor ${i.passport})`:''}${i.hotel?`, menginap di ${i.hotel}${i.room?' kamar '+i.room:''}`:''}, ditangani tim on call Mitra 911 pada ${dLong(p.createdAt,'id')} pukul ${fTime(p.createdAt)} dengan keluhan ${presentTxt||'—'}.`;
+    if(i.allergy&&!isNone(i.allergy))nar+=` Riwayat alergi: ${i.allergy}.`;
     if(v0)nar+=` TTV awal: ${vStr(v0,L)}${news(v0)?`, skor NEWS2 ${news(v0).total}`:''}.`;
     if(dxs.length)nar+=` Kesan klinis: ${dxs.join('; ')}.`;
-    if(items.length)nar+=` Tindakan yang diberikan: ${items.join(', ').toLowerCase()}.`;
+    if(items.length)nar+=` Tindakan yang diberikan: ${natList(items.map(lc1),'id')}.`;
     if(vN&&vN!==v0)nar+=` TTV terakhir pukul ${fTime(vN.t)}: ${vStr(vN,L)}${news(vN)?`, skor NEWS2 ${news(vN).total}`:''}.`;
     nar+=po?` Hasil: ${L.out[po.type]||''}${po.dest?` (${po.dest})`:''}, selesai pukul ${fTime(endT)} setelah ${dur(endT-p.createdAt)}.`:' '+L.under;
   }
   const S=[];
-  S.push({h:L.s1,kv:[[L.name,i.name],[L.pass,i.passport||D],[L.nat,lang==='en'?(String(countryEn(i.nationality)||'').replace(/^the /,'')||D):i.nationality||D],[L.dob,(i.dob?dLong(i.dob,lang):D)+(a!=null?` / ${a} ${L.y}`:'')],[L.sex,sexW],[L.lang,i.lang||D],[L.hotel,(i.hotel||D)+(i.room?' / '+i.room:'')],[L.phone,i.phone||D],[L.ins,i.insurance||D],[L.allergy,i.allergy||L.none]]});
-  S.push({h:L.s2,kv:[[L.date,dLong(p.createdAt,lang)],[L.arr,fTime(p.createdAt)],[L.end,endT?fTime(endT)+(sameDay(endT,p.createdAt)?'':' ('+dLong(endT,lang)+')'):D],[L.dur,endT?(lang==='en'?durEn(endT-p.createdAt):dur(endT-p.createdAt)):D],[L.doc,(EN?drEn(p.team?.doctor):p.team?.doctor)||D],[L.nurse,p.team?.nurse||D]]});
-  S.push({h:L.s3,text:nar});
-  S.push({h:L.s4,kv:[[L.cc,itemsTxt.join(', ')||c.chief||D],...(itemsTxt.length&&c.chief?[[L.ccDet,c.chief]]:[]),[L.onset,c.onset||D],[L.pain,isNum(c.pain)?c.pain+'/10':D],[L.notes,c.notes||D],[L.hist,i.history||D],[L.meds,i.meds||D]]});
+  const kvf=rows=>rows.filter(([k,v])=>v!=null&&String(v).trim()!==''&&!/^[-–—]+$/.test(String(v).trim()));
+  const hideNone=v=>v&&!isNone(v)?v:'';
+  const noneOr=(raw,v)=>!raw?'':(isNone(raw)?L.noneVal:v);
+  const push=(h,kv)=>{const r=kvf(kv);if(r.length)S.push({h,kv:r})};
+  const pushT=(h,t)=>{if(t&&String(t).trim())S.push({h,text:t})};
+  const hotelRoom=[hideNone(i.hotel),hideNone(i.room)?(EN?'Room ':'Kamar ')+i.room:''].filter(Boolean).join(', ');
+  const dobAge=[i.dob?dLong(i.dob,lang):'',a!=null?`${a} ${L.y}`:''].filter(Boolean).join(' / ');
+  push(L.s1,[[L.name,i.name],[L.pass,hideNone(i.passport)],[L.nat,lang==='en'?String(countryEn(i.nationality)||'').replace(/^the /,''):i.nationality],[i.dob?L.dob:L.age,dobAge],[L.sex,i.sex?sexW:''],[L.lang,hideNone(i.lang)],[L.hotel,hotelRoom],[L.phone,hideNone(i.phone)],[L.ins,hideNone(i.insurance)],[L.allergy,!p.identity.allergy?'':(isNone(p.identity.allergy)?L.none:i.allergy)]]);
+  push(L.s2,[[L.date,dLong(p.createdAt,lang)],[L.arr,fTime(p.createdAt)],[L.end,endT?fTime(endT)+(sameDay(endT,p.createdAt)?'':' ('+dLong(endT,lang)+')'):''],[L.dur,endT?(lang==='en'?durEn(endT-p.createdAt):dur(endT-p.createdAt)):''],[L.doc,(EN?drEn(p.team?.doctor):p.team?.doctor)||''],[L.nurse,p.team?.nurse||'']]);
+  pushT(L.s3,nar);
+  push(L.s4,[[L.cc,itemsTxt.join(', ')||c.chief||''],...(itemsTxt.length&&c.chief?[[L.ccDet,c.chief]]:[]),[L.onset,hideNone(c.onset)],[L.pain,isNum(c.pain)?c.pain+'/10':''],[L.notes,hideNone(c.notes)],[L.hist,noneOr(p.identity.history,i.history)],[L.meds,noneOr(p.identity.meds,i.meds)]]);
   if(vs.length)S.push({h:L.s5,table:{head:[L.time,L.bp,L.hr,L.rr,L.temp,L.spo2,L.avpu,L.news],rows:vs.map(v=>[fTime(v.t),isNum(v.sbp)?v.sbp+'/'+(v.dbp||'–'):'–',v.hr||'–',v.rr||'–',v.temp||'–',(v.spo2||'–')+(v.o2?' (O₂)':''),v.avpu||'–',news(v)?String(news(v).total):'–'])},widths:[12,14,10,10,11,15,10,10]});
-  else S.push({h:L.s5,text:D});
-  S.push({h:L.s6,text:dxs.length?dxs.map((d,k)=>(dxs.length>1?(k+1)+'. ':'')+d).join('\n'):L.notRec});
-  const rx=adv.filter(x=>x.rx);S.push({h:L.s7,text:rx.length?rx.map(x=>(rx.length>1?`[${fTime(x.t)}]\n`:'')+x.rx).join('\n\n'):L.notRec});
+  pushT(L.s6,dxs.map((d,k)=>(dxs.length>1?(k+1)+'. ':'')+d).join('\n'));
+  const rx=adv.filter(x=>x.rx);pushT(L.s7,rx.map(x=>(rx.length>1?`[${fTime(x.t)}]\n`:'')+x.rx).join('\n\n'));
   if(acts.length)S.push({h:L.s8,table:{head:[L.time,L.proc,L.detail,L.by],rows:acts.map(x=>[fTime(x.t),(x.items||[]).join(', ')||'–',x.detail||'–',x.nurse||'–'])},widths:[11,30,43,16]});
-  else S.push({h:L.s8,text:L.notRec});
-  const pl=adv.filter(x=>x.plan||x.follow);S.push({h:L.s9,text:pl.length?pl.map(x=>`${fTime(x.t)} — ${(EN?drEn(x.doctor):x.doctor)||''}${x.follow?` [${x.follow}]`:''}\n${x.plan||''}`.trim()).join('\n\n'):L.notRec});
-  S.push({h:L.s10,kv:po?[[L.outcome,L.out[po.type]||D],[L.dest,po.dest||D],[L.fnote,po.note||D]]:[[L.outcome,L.under]]});
+  const pl=adv.filter(x=>x.plan||x.follow);pushT(L.s9,pl.map(x=>`${fTime(x.t)} — ${(EN?drEn(x.doctor):x.doctor)||''}${x.follow?` [${x.follow}]`:''}\n${x.plan||''}`.trim()).join('\n\n'));
+  if(po)push(L.s10,[[L.outcome,L.out[po.type]||''],[L.dest,hideNone(po.dest)],[L.fnote,hideNone(po.note)]]);else S.push({h:L.s10,kv:[[L.outcome,L.under]]});
   if(rnote)S.push({h:L.s11,text:rnote});
   return {L,lang,ref:refNo(p),title:L.title,sub:L.sub,sections:S,docLic:'',nurseLic:'',doctor:(EN?drEn(p.team?.doctor):p.team?.doctor)||'',nurse:p.team?.nurse||'',place:'Yogyakarta',date:dLong(endT||Date.now(),lang),fname:('Laporan_Medis_'+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10))};
 }
@@ -1079,6 +1088,9 @@ function render(){
   if(v==='form'){$('#pform').addEventListener('submit',savePatient);
     const pp=R.id?getP(R.id):null;FORM.items=(pp?.complaint.items||[]).slice();drawCmp();
     $('#fcsel').addEventListener('change',e=>{const k=e.target.value;if(k&&!FORM.items.includes(k))FORM.items.push(k);e.target.value='';drawCmp()});
+    const calcAge=()=>{const d=val('fdob');if(d){const a=ageOf({identity:{dob:d}});if(a!=null&&a>=0){$('#fage').value=a;$('#fage').readOnly=true}}else $('#fage').readOnly=false};
+    $('#fdob').addEventListener('change',calcAge);$('#fdob').addEventListener('input',calcAge);calcAge();
+    $('#fhotelsel').addEventListener('change',e=>{const o=e.target.value==='__other',inp=$('#fhotel');inp.hidden=!o;if(o)inp.focus()});
     $('#fnatsel').addEventListener('change',e=>{const o=e.target.value==='__other',inp=$('#fnat');inp.hidden=!o;if(o)inp.focus()})}
   if(v==='report'){const t=$('#rnote');t&&t.addEventListener('input',()=>{const p=getP(R.id);p.resumeNote=t.value;save();$('#repdoc').innerHTML=resumeHTML(buildResume(p,DB.settings.resumeLang||'en'))})}
   if(v==='report'){let tm;$$('[data-trkey]').forEach(t=>t.addEventListener('input',()=>{const p=getP(R.id);const f=trFields(p).find(x=>x.key===t.dataset.trkey);if(!f)return;p.en=p.en||{};
@@ -1113,6 +1125,7 @@ function vitalSheet(pid,existing){
    <div class="newsbar" id="newsprev"></div>`,()=>{
      const rec={id:v.id||uid(),t:fromLocalInput(val('v_t')),sbp:val('v_sbp'),dbp:val('v_dbp'),hr:val('v_hr'),rr:val('v_rr'),temp:val('v_temp'),spo2:val('v_spo2'),gds:val('v_gds'),pain:val('v_pain'),o2:SH.o2,avpu:SH.avpu,note:val('v_note')};
      if(!['sbp','hr','rr','temp','spo2'].some(k=>isNum(rec[k]))){toast('Isi minimal satu parameter TTV');return false}
+     if(rec.t<p.createdAt-60000)toast('Perhatian: jam TTV lebih awal dari jam tiba pasien — periksa kembali');
      if(existing){Object.assign(existing,rec)}else p.vitals.push(rec);
      save();if(MON.id===pid){MON.next=Date.now()+MON.int*60000;MON.due=false}
      toast('TTV tersimpan · '+(news(rec)?'NEWS2 '+news(rec).total:''));render();
@@ -1131,12 +1144,12 @@ function advSheet(p,ex){const x=ex||{};SH.follow=x.follow||'';
   sheet(ex?'Edit advice dokter':'Advice dokter',`
    <div class="fgrid"><div class="f"><label for="a_doc">Dokter</label><input id="a_doc" value="${esc(x.doctor??p.team?.doctor??DB.settings.doctor)}"></div><div class="f"><label for="a_t">Waktu</label><input id="a_t" type="datetime-local" value="${toLocalInput(x.t||Date.now())}"></div></div>
    <div class="f"><label for="a_dx">Diagnosis / kesan klinis</label><input id="a_dx" value="${esc(x.dx||'')}" placeholder="mis. Gastroenteritis akut"></div>
-   <div class="f"><label for="a_rx">Terapi / resep</label><textarea id="a_rx" placeholder="Satu obat per baris">${esc(x.rx||'')}</textarea></div>
-   <div class="f"><label for="a_plan">Instruksi / advice</label><textarea id="a_plan" placeholder="mis. Observasi TTV tiap 15 menit, bila … rujuk">${esc(x.plan||'')}</textarea></div>
+   <div class="f"><label for="a_rx">Terapi / obat / injeksi</label><textarea id="a_rx" placeholder="Satu obat per baris, mis.&#10;Ondansetron 4 mg IV&#10;Parasetamol 500 mg PO 3x1">${esc(x.rx||'')}</textarea></div>
+   <div class="f"><label for="a_plan">Instruksi / advice (selain obat)</label><textarea id="a_plan" placeholder="mis. Observasi TTV tiap 15 menit; bila muntah berlanjut, rujuk ke RS">${esc(x.plan||'')}</textarea></div>
    <div class="f"><label>Rencana lanjutan</label><div class="chips">${['Observasi','Kontrol ulang','Rujuk RS','Evakuasi medis','Pulang / selesai'].map(k=>`<button type="button" class="chip ${SH.follow===k?'on':''}" data-follow="${k}">${k}</button>`).join('')}</div></div>`,()=>{
    const rec={id:x.id||uid(),t:fromLocalInput(val('a_t')),doctor:val('a_doc'),dx:val('a_dx'),rx:val('a_rx'),plan:val('a_plan'),follow:SH.follow};
    if(!rec.dx&&!rec.rx&&!rec.plan){toast('Isi diagnosis, terapi, atau instruksi');return false}
-   ex?Object.assign(ex,rec):p.advice.push(rec);save();toast('Advice tersimpan');render()});
+   ex?Object.assign(ex,rec):p.advice.push(rec);save();toast(rec.t<p.createdAt-60000?'Tersimpan — perhatian: jam advice lebih awal dari jam tiba pasien':'Advice tersimpan');render()});
   $('#sf').addEventListener('click',e=>{const c=e.target.closest('[data-follow]');if(c){SH.follow=SH.follow===c.dataset.follow?'':c.dataset.follow;$$('[data-follow]').forEach(b=>b.classList.toggle('on',b.dataset.follow===SH.follow))}});
 }
 function actSheet(p,ex){const x=ex||{};SH.items=new Set(x.items||[]);
@@ -1148,7 +1161,7 @@ function actSheet(p,ex){const x=ex||{};SH.items=new Set(x.items||[]);
    val('n_other').split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>SH.items.add(s));
    const rec={id:x.id||uid(),t:fromLocalInput(val('n_t')),nurse:val('n_nurse'),items:[...SH.items],detail:val('n_det')};
    if(!rec.items.length&&!rec.detail){toast('Pilih atau tulis tindakan');return false}
-   ex?Object.assign(ex,rec):p.actions.push(rec);save();toast('Tindakan tersimpan');render()});
+   ex?Object.assign(ex,rec):p.actions.push(rec);save();toast(rec.t<p.createdAt-60000?'Tersimpan — perhatian: jam tindakan lebih awal dari jam tiba pasien':'Tindakan tersimpan');render()});
   $('#sf').addEventListener('click',e=>{const c=e.target.closest('[data-item]');if(c){const k=c.dataset.item;SH.items.has(k)?SH.items.delete(k):SH.items.add(k);c.classList.toggle('on')}});
 }
 function finishSheet(p){
@@ -1170,9 +1183,11 @@ function confirmSheet(title,msg,label,fn){
 const FORM={items:[]};
 function drawCmp(){const el=$('#fcchips');if(!el)return;el.innerHTML=FORM.items.length?FORM.items.map(k=>`<button type="button" class="chip on" data-rmc="${k}" aria-label="Hapus ${esc(cmpL(k,'en'))}">${esc(cmpL(k,'en'))} ✕</button>`).join(''):'<span class="xs muted">Belum ada keluhan dipilih.</span>'}
 function savePatient(e){e.preventDefault();
-  const need=[['fname','Nama'],['fpass','Nomor paspor'],['fhotel','Hotel']];
+  const hsel=val('fhotelsel'),hotelV=hsel==='__other'?val('fhotel'):hsel;
+  const need=[['fname','Nama'],['fpass','Nomor paspor']];
   for(const[id,l]of need){if(!val(id)){toast(l+' wajib diisi');document.getElementById(id).focus();return}}
-  const nsel=val('fnatsel'),identity={name:val('fname'),passport:val('fpass').toUpperCase(),nationality:nsel==='__other'?val('fnat'):nsel,sex:val('fsex'),dob:val('fdob'),age:val('fage'),lang:val('flang'),allergy:val('fallergy'),hotel:val('fhotel'),room:val('froom'),phone:val('fphone'),email:val('femail'),companion:val('fcomp'),insurance:val('fins'),history:val('fhist'),meds:val('fmeds')};
+  if(!hotelV){toast('Hotel wajib diisi');(hsel==='__other'?$('#fhotel'):$('#fhotelsel')).focus();return}
+  const nsel=val('fnatsel'),identity={name:val('fname'),passport:val('fpass').toUpperCase(),nationality:nsel==='__other'?val('fnat'):nsel,sex:val('fsex'),dob:val('fdob'),age:val('fage'),lang:val('flang'),allergy:val('fallergy'),hotel:hotelV,room:val('froom'),phone:val('fphone'),email:val('femail'),companion:val('fcomp'),insurance:val('fins'),history:val('fhist'),meds:val('fmeds')};
   if(!FORM.items.length&&!val('fchief')){toast('Pilih minimal satu keluhan atau isi keterangan');$('#fcsel').focus();return}
   const complaint={items:FORM.items.slice(),chief:val('fchief'),onset:val('fonset'),pain:val('fpain'),notes:val('fnotes')};
   complaint.summary=[complaint.items.map(k=>cmpL(k,'en')).join(', '),complaint.chief].filter(Boolean).join(' — ');
