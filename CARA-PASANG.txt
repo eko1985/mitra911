@@ -1,0 +1,11 @@
+MITRA 911 ONCALL - cara memasang aplikasi
+
+1. Unggah SEMUA isi folder ini ke hosting HTTPS gratis, mis. Netlify Drop
+   (app.netlify.com/drop): seret folder "mitra911" ke halaman itu.
+2. Buka alamatnya di HP / laptop, lalu pasang:
+   - Android (Chrome): menu titik tiga > Instal aplikasi
+   - iPhone (Safari): Bagikan > Tambah ke Layar Utama
+   - Laptop (Chrome/Edge): ikon instal di kolom alamat
+3. Sambungkan ke spreadsheet tim: lihat PANDUAN-SERVER-SPREADSHEET.txt
+4. Hapus pasien contoh: Pengaturan > Hapus contoh (data contoh tidak pernah
+   dikirim ke spreadsheet).
