@@ -387,36 +387,60 @@ async function api(body){
   if(!j.ok)throw new Error(j.error||'Server menolak');return j;
 }
 function scheduleSync(ms=4000){if(!srv()||IN_FRAME)return;clearTimeout(SYNC.timer);SYNC.timer=setTimeout(()=>sync(false),ms)}
+/* gabungkan versi lokal (belum terkirim) dengan versi server: entri TTV/advice/tindakan dari keduanya dipertahankan */
+function mergeInto(loc,r){
+  const del=new Set([...(loc.delIds||[]),...(r.delIds||[])]);
+  const uni=(a,b)=>{const m=new Map();(b||[]).forEach(x=>x&&x.id&&m.set(x.id,x));(a||[]).forEach(x=>x&&x.id&&m.set(x.id,x));return [...m.values()].filter(x=>!del.has(x.id))};
+  const before=snapKey(loc);
+  loc.vitals=uni(loc.vitals,r.vitals);loc.advice=uni(loc.advice,r.advice);loc.actions=uni(loc.actions,r.actions);
+  loc.en=Object.assign({},r.en||{},loc.en||{});loc.delIds=[...del];
+  if(!loc.outcome&&r.outcome&&r.status==='selesai'&&(r.updatedAt||0)>(loc.createdAt||0)){loc.outcome=r.outcome;loc.status=r.status}
+  if(!loc.resumeNote&&r.resumeNote)loc.resumeNote=r.resumeNote;
+  return snapKey(loc)!==before;
+}
+function applyRemote(list){
+  let changed=false;const dirty=new Set(DB.sync.dirty);
+  (list||[]).forEach(r=>{
+    if(!r||!r.id)return;
+    const k=DB.patients.findIndex(p=>p.id===r.id),loc=DB.patients[k];
+    if(dirty.has(r.id)){ if(loc&&!r.deleted&&mergeInto(loc,r)){loc.updatedAt=Math.max(Date.now(),(r.updatedAt||0)+1);SNAP.set(loc.id,snapKey(loc));changed=true} return }
+    if(r.deleted){if(loc&&!loc.demo&&(loc.updatedAt||0)<=r.updatedAt){DB.patients.splice(k,1);SNAP.delete(r.id);changed=true}return}
+    if(!loc){DB.patients.push(r);changed=true}
+    else if((r.updatedAt||0)>=(loc.updatedAt||0)){if(snapKey(loc)!==snapKey(r)){for(const key of Object.keys(loc))delete loc[key];Object.assign(loc,r);changed=true}else loc.updatedAt=r.updatedAt}
+    else return;
+    SNAP.set(r.id,snapKey(r));
+  });
+  return changed;
+}
 async function sync(manual){
   if(!srv()||IN_FRAME||SYNC.busy)return;
   if(!navigator.onLine){SYNC.err='Offline';syncUI();if(manual)toast('Tidak ada internet — data aman di HP, akan dikirim saat online');return}
   ensureSync();SYNC.busy=true;SYNC.err='';syncUI();
-  const dirtyIds=new Set(DB.sync.dirty),sent=DB.patients.filter(p=>dirtyIds.has(p.id)&&!p.demo).map(p=>JSON.parse(JSON.stringify(p)));
-  const tombs=DB.sync.tomb.slice();
-  let changed=false;
+  let changed=false,sentN=0,recvN=0;
   try{
-    const j=await api({action:'sync',since:DB.sync.lastSync,device:DB.settings.deviceName||'',changes:[...sent,...tombs]});
-    // hapus dari antrean yang sudah terkirim & belum berubah lagi
+    const dev=DB.settings.deviceName||'';
+    // 1) ambil dulu perubahan dari server, gabungkan dengan isian lokal yang belum terkirim
+    if(pending()){
+      const j1=await api({action:'sync',since:DB.sync.lastSync,device:dev,changes:[]});
+      changed=applyRemote(j1.patients)||changed;recvN+=(j1.patients||[]).length;
+      DB.sync.lastSync=j1.serverTime;persist();
+    }
+    // 2) kirim versi gabungan + terima perubahan terbaru
+    const dirtyIds=new Set(DB.sync.dirty),sent=DB.patients.filter(p=>dirtyIds.has(p.id)&&!p.demo).map(p=>JSON.parse(JSON.stringify(p)));
+    const tombs=DB.sync.tomb.slice();
+    const j=await api({action:'sync',since:DB.sync.lastSync,device:dev,changes:[...sent,...tombs]});
     const sentAt=new Map(sent.map(p=>[p.id,p.updatedAt]));
     DB.sync.dirty=DB.sync.dirty.filter(id=>{const p=getP(id);return !sentAt.has(id)||(p&&p.updatedAt!==sentAt.get(id))});
     DB.sync.tomb=DB.sync.tomb.filter(t=>!tombs.includes(t));
-    const stillDirty=new Set(DB.sync.dirty);
-    (j.patients||[]).forEach(r=>{
-      if(!r||!r.id||stillDirty.has(r.id))return;
-      const k=DB.patients.findIndex(p=>p.id===r.id),loc=DB.patients[k];
-      if(r.deleted){if(loc&&!loc.demo&&(loc.updatedAt||0)<=r.updatedAt){DB.patients.splice(k,1);SNAP.delete(r.id);changed=true}return}
-      if(!loc){DB.patients.push(r);changed=true}
-      else if((r.updatedAt||0)>=(loc.updatedAt||0)){if(snapKey(loc)!==snapKey(r))changed=true;DB.patients[k]=r}
-      else return;
-      SNAP.set(r.id,snapKey(r));
-    });
+    changed=applyRemote(j.patients)||changed;sentN=j.applied||0;recvN+=(j.patients||[]).length;
     DB.sync.lastSync=j.serverTime;DB.sync.lastOk=Date.now();
     persist();
-    if(manual)toast('Sinkron selesai · '+(j.applied||0)+' terkirim, '+(j.patients||[]).length+' diterima');
+    if(manual)toast('Sinkron selesai · '+sentN+' terkirim, '+recvN+' diterima');
   }catch(err){SYNC.err=err.message==='Failed to fetch'?'Server tidak terjangkau':err.message;if(manual)toast('Sinkron gagal: '+SYNC.err)}
   SYNC.busy=false;
   const typing=document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
   if(changed&&!$('#ov')&&R.view!=='form'&&!typing)render();else syncUI();
+  if(pending()&&!SYNC.err)scheduleSync(1500);
 }
 function syncLabel(){
   if(!srv())return{cls:'off',t:'Belum tersambung ke tim',s:'Isi kunci tim di Pengaturan'};
@@ -1126,7 +1150,8 @@ function vitalSheet(pid,existing){
      const rec={id:v.id||uid(),t:fromLocalInput(val('v_t')),sbp:val('v_sbp'),dbp:val('v_dbp'),hr:val('v_hr'),rr:val('v_rr'),temp:val('v_temp'),spo2:val('v_spo2'),gds:val('v_gds'),pain:val('v_pain'),o2:SH.o2,avpu:SH.avpu,note:val('v_note')};
      if(!['sbp','hr','rr','temp','spo2'].some(k=>isNum(rec[k]))){toast('Isi minimal satu parameter TTV');return false}
      if(rec.t<p.createdAt-60000)toast('Perhatian: jam TTV lebih awal dari jam tiba pasien — periksa kembali');
-     if(existing){Object.assign(existing,rec)}else p.vitals.push(rec);
+     const lp=getP(pid)||p,ev=existing&&lp.vitals.find(v=>v.id===existing.id);
+     if(ev){Object.assign(ev,rec)}else lp.vitals.push(rec);
      save();if(MON.id===pid){MON.next=Date.now()+MON.int*60000;MON.due=false}
      toast('TTV tersimpan · '+(news(rec)?'NEWS2 '+news(rec).total:''));render();
    },'Simpan TTV');
@@ -1149,7 +1174,7 @@ function advSheet(p,ex){const x=ex||{};SH.follow=x.follow||'';
    <div class="f"><label>Rencana lanjutan</label><div class="chips">${['Observasi','Kontrol ulang','Rujuk RS','Evakuasi medis','Pulang / selesai'].map(k=>`<button type="button" class="chip ${SH.follow===k?'on':''}" data-follow="${k}">${k}</button>`).join('')}</div></div>`,()=>{
    const rec={id:x.id||uid(),t:fromLocalInput(val('a_t')),doctor:val('a_doc'),dx:val('a_dx'),rx:val('a_rx'),plan:val('a_plan'),follow:SH.follow};
    if(!rec.dx&&!rec.rx&&!rec.plan){toast('Isi diagnosis, terapi, atau instruksi');return false}
-   ex?Object.assign(ex,rec):p.advice.push(rec);save();toast(rec.t<p.createdAt-60000?'Tersimpan — perhatian: jam advice lebih awal dari jam tiba pasien':'Advice tersimpan');render()});
+   const lp=getP(p.id)||p,le=ex&&lp.advice.find(a=>a.id===ex.id);le?Object.assign(le,rec):lp.advice.push(rec);save();toast(rec.t<p.createdAt-60000?'Tersimpan — perhatian: jam advice lebih awal dari jam tiba pasien':'Advice tersimpan');render()});
   $('#sf').addEventListener('click',e=>{const c=e.target.closest('[data-follow]');if(c){SH.follow=SH.follow===c.dataset.follow?'':c.dataset.follow;$$('[data-follow]').forEach(b=>b.classList.toggle('on',b.dataset.follow===SH.follow))}});
 }
 function actSheet(p,ex){const x=ex||{};SH.items=new Set(x.items||[]);
@@ -1161,7 +1186,7 @@ function actSheet(p,ex){const x=ex||{};SH.items=new Set(x.items||[]);
    val('n_other').split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>SH.items.add(s));
    const rec={id:x.id||uid(),t:fromLocalInput(val('n_t')),nurse:val('n_nurse'),items:[...SH.items],detail:val('n_det')};
    if(!rec.items.length&&!rec.detail){toast('Pilih atau tulis tindakan');return false}
-   ex?Object.assign(ex,rec):p.actions.push(rec);save();toast(rec.t<p.createdAt-60000?'Tersimpan — perhatian: jam tindakan lebih awal dari jam tiba pasien':'Tindakan tersimpan');render()});
+   const lp=getP(p.id)||p,le=ex&&lp.actions.find(a=>a.id===ex.id);le?Object.assign(le,rec):lp.actions.push(rec);save();toast(rec.t<p.createdAt-60000?'Tersimpan — perhatian: jam tindakan lebih awal dari jam tiba pasien':'Tindakan tersimpan');render()});
   $('#sf').addEventListener('click',e=>{const c=e.target.closest('[data-item]');if(c){const k=c.dataset.item;SH.items.has(k)?SH.items.delete(k):SH.items.add(k);c.classList.toggle('on')}});
 }
 function finishSheet(p){
@@ -1170,7 +1195,7 @@ function finishSheet(p){
    <div class="f"><label for="o_dest">RS / fasilitas tujuan (bila dirujuk)</label><input id="o_dest" placeholder="mis. RS … IGD"></div>
    <div class="f"><label for="o_t">Waktu selesai</label><input id="o_t" type="datetime-local" value="${toLocalInput(Date.now())}"></div>
    <div class="f"><label for="o_note">Catatan akhir</label><textarea id="o_note" placeholder="Kondisi saat ditinggalkan, edukasi, serah terima"></textarea></div>`,()=>{
-   p.outcome={t:fromLocalInput(val('o_t')),type:val('o_type'),dest:val('o_dest'),note:val('o_note')};p.status='selesai';
+   p=getP(p.id)||p;p.outcome={t:fromLocalInput(val('o_t')),type:val('o_type'),dest:val('o_dest'),note:val('o_note')};p.status='selesai';
    if(MON.id===p.id)stopMon();save();toast('Penanganan selesai');render()},'Selesaikan');
 }
 function confirmSheet(title,msg,label,fn){
@@ -1243,9 +1268,9 @@ document.addEventListener('click',e=>{
   if(d.rlang){DB.settings.resumeLang=d.rlang;save();return render()}
   if(d.themeSet){DB.settings.theme=d.themeSet;save();applyTheme();return render()}
   const p=R.id?getP(R.id):null;
-  if(d.delv&&p){return confirmSheet('Hapus TTV?','Data TTV ini akan dihapus.','Hapus',()=>{p.vitals=p.vitals.filter(v=>v.id!==d.delv);save();render()})}
-  if(d.deladv&&p){return confirmSheet('Hapus advice?','Advice dokter ini akan dihapus.','Hapus',()=>{p.advice=p.advice.filter(v=>v.id!==d.deladv);save();render()})}
-  if(d.delact&&p){return confirmSheet('Hapus tindakan?','Catatan tindakan ini akan dihapus.','Hapus',()=>{p.actions=p.actions.filter(v=>v.id!==d.delact);save();render()})}
+  if(d.delv&&p){return confirmSheet('Hapus TTV?','Data TTV ini akan dihapus.','Hapus',()=>{const lp=getP(p.id)||p;lp.vitals=lp.vitals.filter(v=>v.id!==d.delv);lp.delIds=[...(lp.delIds||[]),d.delv];save();render()})}
+  if(d.deladv&&p){return confirmSheet('Hapus advice?','Advice dokter ini akan dihapus.','Hapus',()=>{const lp=getP(p.id)||p;lp.advice=lp.advice.filter(v=>v.id!==d.deladv);lp.delIds=[...(lp.delIds||[]),d.deladv];save();render()})}
+  if(d.delact&&p){return confirmSheet('Hapus tindakan?','Catatan tindakan ini akan dihapus.','Hapus',()=>{const lp=getP(p.id)||p;lp.actions=lp.actions.filter(v=>v.id!==d.delact);lp.delIds=[...(lp.delIds||[]),d.delact];save();render()})}
   if(d.edadv&&p)return advSheet(p,p.advice.find(x=>x.id===d.edadv));
   if(d.edact&&p)return actSheet(p,p.actions.find(x=>x.id===d.edact));
   switch(d.act){
