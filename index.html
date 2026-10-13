@@ -15,8 +15,7 @@
 <title>Mitra 911 OnCall</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
-<script src="lib/jspdf.umd.min.js"></script>
-<script src="lib/jspdf.plugin.autotable.min.js"></script>
+
 <style>
 /* Layout: sidebar (laptop) / top bar + bottom nav (HP); navy klinis + hijau Mitra 911, angka TTV mono */
 :root{
@@ -1003,8 +1002,14 @@ function exportDocx(R){
 }
 
 /* ---- PDF ---- */
-function exportPdf(R){
-  if(!window.jspdf||!window.jspdf.jsPDF){toast('Modul PDF belum termuat, coba lagi');return}
+function loadScript(src){return new Promise((ok,no)=>{const e=document.createElement('script');e.src=src;e.onload=ok;e.onerror=no;document.head.appendChild(e)})}
+async function ensurePdf(){
+  if(window.jspdf&&window.jspdf.jsPDF&&window.jspdf.jsPDF.API.autoTable)return;
+  for(const base of ['lib/','']){try{if(!(window.jspdf&&window.jspdf.jsPDF))await loadScript(base+'jspdf.umd.min.js');await loadScript(base+'jspdf.plugin.autotable.min.js');return}catch(e){}}
+  throw new Error('modul PDF tidak ditemukan');
+}
+async function exportPdf(R){
+  await ensurePdf();
   const T=s=>String(s??'').replace(/₂/g,'2').replace(/≥/g,'>=').replace(/≤/g,'<=').replace(/[^\x00-\xFF–—•·°’‘“”…]/g,'');
   const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
   const W=210,M=14,NAVY=[23,57,140],MUT=[90,105,135];
@@ -1217,7 +1222,7 @@ document.addEventListener('click',e=>{
     case 'srvCopy':{const show=()=>{const ta=$('#srvcode');ta.hidden=false;ta.focus();ta.select();toast('Salin manual teks yang terpilih')};try{navigator.clipboard.writeText(SERVER_CODE).then(()=>toast('Kode Apps Script disalin'),show)}catch(err){show()}return}
     case 'delP':return confirmSheet('Hapus pasien ini?','Data <b>'+esc(p.identity.name)+'</b> beserta TTV, advice, dan tindakannya akan dihapus'+(srv()?' dari perangkat ini dan dari spreadsheet tim':'')+'.','Hapus pasien',()=>{if(MON.id===p.id)stopMon();DB.patients=DB.patients.filter(x=>x.id!==p.id);save();toast('Pasien dihapus');go('list',{id:null})});
     case 'docx':try{exportDocx(buildResume(p,DB.settings.resumeLang||'en'));toast('Resume Word dibuat')}catch(err){toast('Gagal membuat Word: '+err.message)}return;
-    case 'pdf':try{exportPdf(buildResume(p,DB.settings.resumeLang||'en'));toast('Resume PDF dibuat')}catch(err){toast('Gagal membuat PDF: '+err.message)}return;
+    case 'pdf':toast('Menyiapkan PDF…');exportPdf(buildResume(p,DB.settings.resumeLang||'en')).then(()=>toast('Resume PDF dibuat'),err=>toast('Gagal membuat PDF: '+err.message));return;
     case 'addAdv':return advSheet(p);
     case 'addAct':return actSheet(p);
     case 'finish':return finishSheet(p);
