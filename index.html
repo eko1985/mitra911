@@ -98,6 +98,7 @@ h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:
 .eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:9px 14px;font-weight:600;cursor:pointer;white-space:nowrap}
 .btn:hover{border-color:var(--navy)}
+a.btn{text-decoration:none;color:inherit}a.btn.go{color:#fff}
 .btn svg{width:18px;height:18px}
 .btn.pri{background:var(--navy);border-color:var(--navy);color:var(--on-navy)}
 .btn.pri:hover{filter:brightness(1.08)}
@@ -214,6 +215,7 @@ dl.kv dt{color:var(--muted)}dl.kv dd{margin:0;font-weight:600;overflow-wrap:anyw
 .tl-dot svg{width:13px;height:13px}
 .tl-dot.v{background:var(--green-soft);color:var(--green)}
 .tl-dot.a{background:var(--warn-soft);color:var(--warn)}
+.tl-dot.m{background:#EFE6FA;color:#7A3FB0}.tl-dot.e{background:#E1F3F3;color:#0E7C7C}
 .tl-body{background:var(--surface-2);border-radius:11px;padding:10px 12px;font-size:14px;min-width:0}
 .tl-body .ttl{font-weight:700;font-size:13px;display:flex;justify-content:space-between;gap:8px;align-items:center}
 .tl-body p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -284,14 +286,26 @@ td.w{color:var(--warn);font-weight:700}td.c{color:var(--crit);font-weight:700}
 .rep-h{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:3px solid var(--navy);padding-bottom:14px;flex-wrap:wrap}
 .rep-logo{width:230px;max-width:60%;height:auto}
 .rep-sec{margin-top:18px}
+.rep-sec.sub{margin-top:10px}.rep-sec h4{font-size:13.5px;margin:0 0 6px;color:var(--ink)}
+.rep-ul{margin:4px 0;padding-left:20px;display:flex;flex-direction:column;gap:3px}
 .rep-sec h3{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--navy);border-bottom:1px solid var(--line);padding-bottom:5px;margin-bottom:8px}
 .rep-sec p{margin:4px 0;white-space:pre-wrap}
+.sign .sgap{display:block}
 .sign{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center;font-size:13px}
-.sign .ln{margin-top:56px;border-top:1px solid var(--ink);padding-top:4px;font-weight:700}
+.sign>div{display:flex;flex-direction:column;justify-content:flex-end}
+.sign .sigbox{height:74px;display:flex;align-items:flex-end;justify-content:center}
+.sign .sigbox img{max-height:72px;max-width:100%;object-fit:contain}
+.sign .ln{margin-top:2px;border-top:1px solid var(--ink);padding-top:4px;font-weight:700}
 @media print{
   .side,.topbar,.bnav,.noprint{display:none!important}
   .shell{display:block}.main{padding:0}body{background:#fff}
   .card{box-shadow:none;border:0}
+  @page{size:A4;margin:0}
+  html,body{padding:0!important;margin:0}
+  .wrap{max-width:none}
+  .report{padding:14mm 14mm 12mm!important;max-width:none}
+  .rep-sec,.sign,.tblwrap tr{break-inside:avoid}
+  .toast,.overlay{display:none!important}
 }
 </style>
 </head>
@@ -372,7 +386,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.13-20';
+const APP_VERSION='v2026.10.15-28';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -396,7 +410,8 @@ function mergeInto(loc,r){
   const del=new Set([...(loc.delIds||[]),...(r.delIds||[])]);
   const uni=(a,b)=>{const m=new Map();(b||[]).forEach(x=>x&&x.id&&m.set(x.id,x));(a||[]).forEach(x=>x&&x.id&&m.set(x.id,x));return [...m.values()].filter(x=>!del.has(x.id))};
   const before=snapKey(loc);
-  loc.vitals=uni(loc.vitals,r.vitals);loc.advice=uni(loc.advice,r.advice);loc.actions=uni(loc.actions,r.actions);
+  loc.vitals=uni(loc.vitals,r.vitals);loc.advice=uni(loc.advice,r.advice);loc.actions=uni(loc.actions,r.actions);loc.meds=uni(loc.meds,r.meds);loc.medAdj=uni(loc.medAdj,r.medAdj);
+  if(!loc.exam&&r.exam)loc.exam=r.exam;if(!loc.recs&&r.recs)loc.recs=r.recs;if(!loc.ftf&&r.ftf)loc.ftf=r.ftf;if(r.mr)loc.mr=r.mr;
   loc.en=Object.assign({},r.en||{},loc.en||{});loc.delIds=[...del];
   if(!loc.outcome&&r.outcome&&r.status==='selesai'&&(r.updatedAt||0)>(loc.createdAt||0)){loc.outcome=r.outcome;loc.status=r.status}
   if(!loc.resumeNote&&r.resumeNote)loc.resumeNote=r.resumeNote;
@@ -544,6 +559,7 @@ const I={
  flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/>',
  play:'<path d="M6 4l14 8-14 8z"/>',stop:'<rect x="6" y="6" width="12" height="12" rx="2"/>',
  install:'<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
+ pill:'<rect x="3" y="9" width="18" height="7" rx="3.5" transform="rotate(-35 12 12.5)"/><path d="M10 7.5l4 6"/>',
  sync:'<path d="M21 12a9 9 0 0 1-15.5 6.3L3 16M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5M3 21v-5h5"/>',
 };
 const ic=(n,s=20,w=2)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
@@ -687,14 +703,14 @@ function vMonitor(){
 function vDetail(){
   const p=getP(R.id);if(!p){R.view='list';return vList()}
   const i=p.identity,a=ageOf(p),v=lastV(p);
-  const tabs=[['ring','Ringkasan',''],['ttv','TTV',p.vitals.length],['adv','Advice Dokter',p.advice.length],['act','Tindakan Perawat',p.actions.length],['id','Identitas','']];
+  const tabs=[['ring','Ringkasan',''],['ttv','TTV',p.vitals.length],['exam','Pemeriksaan',p.exam?'✓':''],['adv','Advice & Dx',p.advice.length],['obat','Obat',(p.meds||[]).length],['act','Tindakan',p.actions.length],['id','Identitas','']];
   let body='';
-  if(R.tab==='ring')body=tabRing(p);else if(R.tab==='ttv')body=tabTTV(p);else if(R.tab==='adv')body=tabAdv(p);else if(R.tab==='act')body=tabAct(p);else body=tabId(p);
+  if(R.tab==='ring')body=tabRing(p);else if(R.tab==='ttv')body=tabTTV(p);else if(R.tab==='exam')body=tabExam(p);else if(R.tab==='obat')body=tabObat(p);else if(R.tab==='adv')body=tabAdv(p);else if(R.tab==='act')body=tabAct(p);else body=tabId(p);
   return `<div class="row"><button class="btn sm ghost" data-nav="list">${ic('back',16)}Kembali</button></div>
   <div class="card dhead">${avatar(p)}
    <div style="min-width:0"><div class="row" style="gap:8px">${statusPill(p)}${demoPill(p)}${i.allergy?`<span class="pill allergy">${ic('alert',13)}Alergi: ${esc(i.allergy)}</span>`:''}${p.status==='aktif'?newsChip(v):''}</div>
     <h1 style="margin-top:6px">${esc(i.name)}</h1>
-    <div class="facts"><span>${flagOf(i.nationality)} <b>${esc(i.nationality||'–')}</b></span><span>Paspor <b class="mono">${esc(i.passport||'–')}</b></span><span><b>${a!=null?a+' th':'–'}</b> · ${i.sex==='L'?'Laki-laki':i.sex==='P'?'Perempuan':'–'}</span><span>${esc(i.hotel||'–')} · Kamar <b>${esc(i.room||'–')}</b></span><span>${ic('clock',13)} ${p.status==='aktif'?'<b data-since="'+p.createdAt+'">'+dur(Date.now()-p.createdAt)+'</b>':'Durasi <b>'+dur((p.outcome?.t||Date.now())-p.createdAt)+'</b>'}</span></div></div>
+    <div class="facts">${p.mr?`<span>No. RM <b class="mono">${esc(p.mr)}</b></span>`:''}<span>${flagOf(i.nationality)} <b>${esc(i.nationality||'–')}</b></span><span>Paspor <b class="mono">${esc(i.passport||'–')}</b></span><span><b>${a!=null?a+' th':'–'}</b> · ${i.sex==='L'?'Laki-laki':i.sex==='P'?'Perempuan':'–'}</span><span>${esc(i.hotel||'–')} · Kamar <b>${esc(i.room||'–')}</b></span><span>${ic('clock',13)} ${p.status==='aktif'?'<b data-since="'+p.createdAt+'">'+dur(Date.now()-p.createdAt)+'</b>':'Durasi <b>'+dur((p.outcome?.t||Date.now())-p.createdAt)+'</b>'}</span></div></div>
    <div class="row acts">${p.status==='aktif'?`<button class="btn go" data-act="finish">${ic('check')}Selesaikan</button>`:`<button class="btn" data-act="reopen">Buka lagi</button>`}<button class="btn" data-act="report">${ic('doc')}Laporan Medis</button><button class="btn" data-act="edit">${ic('edit')}Edit</button></div></div>
   <div class="tabs" role="tablist">${tabs.map(([k,l,c])=>`<button class="${R.tab===k?'on':''}" data-tab="${k}">${l}${c!==''?`<span class="cnt">${c}</span>`:''}</button>`).join('')}</div>
   ${body}`;
@@ -702,13 +718,15 @@ function vDetail(){
 function events(p){
   const ev=[];
   ev.push({t:p.createdAt,k:'s',ttl:'Pasien diterima',txt:chiefLabel(p),ref:'start'});
-  p.vitals.forEach(v=>ev.push({t:v.t,k:'v',ttl:'TTV',txt:`TD ${v.sbp||'–'}/${v.dbp||'–'} · N ${v.hr||'–'} · RR ${v.rr||'–'} · S ${v.temp||'–'} · SpO₂ ${v.spo2||'–'}%${v.o2?' (O₂)':''}${v.note?'\n'+v.note:''}`,chip:newsChip(v),ref:'v:'+v.id,news:news(v)}));
+  p.vitals.forEach(v=>ev.push({t:v.t,k:'v',ttl:'TTV',txt:[[isNum(v.sbp)?`TD ${v.sbp}/${v.dbp||'–'}`:'',isNum(v.hr)?`N ${v.hr}`:'',isNum(v.rr)?`RR ${v.rr}`:'',isNum(v.temp)?`S ${v.temp}°C`:'',isNum(v.spo2)?`SpO₂ ${v.spo2}%${v.o2?' (O₂)':''}`:''].filter(Boolean).join(' · '),v.note].filter(Boolean).join('\n'),chip:newsChip(v),ref:'v:'+v.id,news:news(v),full:['rr','spo2','sbp','hr','temp'].every(k=>isNum(v[k]))}));
   p.advice.forEach(x=>ev.push({t:x.t,k:'d',ttl:'Advice '+(x.doctor||'dokter'),txt:[x.dx&&('Dx: '+x.dx),x.rx&&('Terapi: '+x.rx),x.plan&&('Instruksi: '+x.plan),x.follow&&('Tindak lanjut: '+x.follow)].filter(Boolean).join('\n'),ref:'d:'+x.id}));
+  (p.meds||[]).forEach(m=>ev.push({t:m.t,k:'m',ttl:'Obat',txt:[[m.name,m.dose].filter(Boolean).join(' '),lk(ROUTES,m.route,2),lk(FREQS,m.freq,2),m.qty].filter(Boolean).join(' · ')+(m.note?'\n'+m.note:''),ref:'m:'+m.id}));
+  if(p.exam&&p.exam.t){const e=p.exam,ab=EXAM_SYS.filter(r=>(e.sys||{})[r[0]]?.st==='a').map(r=>r[2]+': '+((e.sys[r[0]].note)||'abnormal'));ev.push({t:e.t,k:'e',ttl:'Pemeriksaan fisik',txt:[[lk(GC,e.gc,2)&&('KU '+lk(GC,e.gc,2)),lk(CONSC,e.consc,2),gcsTot(e)!=null?'GCS '+gcsTot(e):''].filter(Boolean).join(' · '),...(ab.length?ab:['Sistem lain dalam batas normal'])].filter(Boolean).join('\n'),ref:'exam'})}
   p.actions.forEach(x=>ev.push({t:x.t,k:'a',ttl:'Tindakan '+(x.nurse||'perawat'),txt:(x.items||[]).join(', ')+(x.detail?'\n'+x.detail:''),ref:'a:'+x.id}));
   if(p.outcome)ev.push({t:p.outcome.t,k:'s',ttl:'Selesai — '+(OUTCOMES[p.outcome.type]||''),txt:[p.outcome.dest&&('Tujuan: '+p.outcome.dest),p.outcome.note].filter(Boolean).join('\n'),ref:'end'});
   return ev.sort((a,b)=>b.t-a.t);
 }
-function timeline(ev){const icn={s:'flag',v:'pulse',d:'steth',a:'hand'};
+function timeline(ev){const icn={s:'flag',v:'pulse',d:'steth',a:'hand',m:'pill',e:'steth'};
   return `<div class="tl">${ev.map(e=>`<div class="tl-item"><div class="tl-time">${fTime(e.t)}<div class="xs">${new Date(e.t).toLocaleDateString('id-ID',{day:'numeric',month:'short'})}</div></div><div class="tl-dot ${e.k}">${ic(icn[e.k],13,2.4)}</div><div class="tl-body"><div class="ttl"><span>${esc(e.ttl)}</span><span class="row" style="gap:4px;flex-wrap:nowrap">${e.chip||''}${e.ref?`<button class="iconbtn" data-tledit="${esc(e.ref)}" aria-label="Edit" title="Edit">${ic('edit',15)}</button>`:''}</span></div>${e.txt?`<p>${esc(e.txt)}</p>`:''}</div></div>`).join('')}</div>`}
 function tabRing(p){const v=lastV(p),c=p.complaint;
   return `<div class="two"><div style="display:flex;flex-direction:column;gap:16px">
@@ -734,10 +752,24 @@ function tabTTV(p){
     <div class="tblwrap"><table class="vt"><thead><tr><th>Waktu</th><th>TD</th><th>Nadi</th><th>RR</th><th>Suhu</th><th>SpO₂</th><th>O₂</th><th>AVPU</th><th>GDS</th><th>Nyeri</th><th>NEWS2</th><th>Catatan</th><th></th></tr></thead>
     <tbody>${vs.map(v=>`<tr><td>${fTime(v.t)}<div class="xs muted">${new Date(v.t).toLocaleDateString('id-ID',{day:'numeric',month:'short'})}</div></td><td class="${cls('sbp',v.sbp)}">${v.sbp||'–'}/${v.dbp||'–'}</td><td class="${cls('hr',v.hr)}">${v.hr||'–'}</td><td class="${cls('rr',v.rr)}">${v.rr||'–'}</td><td class="${cls('temp',v.temp)}">${v.temp||'–'}</td><td class="${cls('spo2',v.spo2)}">${v.spo2||'–'}</td><td class="${v.o2?'w':''}">${v.o2?'Ya':'–'}</td><td class="${v.avpu&&v.avpu!=='A'?'c':''}">${v.avpu||'–'}</td><td>${v.gds||'–'}</td><td>${isNum(v.pain)?v.pain:'–'}</td><td>${newsChip(v)}</td><td class="note">${esc(v.note||'')}</td><td><button class="iconbtn" data-delv="${v.id}" aria-label="Hapus">${ic('trash',16)}</button></td></tr>`).join('')||'<tr><td colspan="13" class="note" style="text-align:center;padding:24px">Belum ada TTV.</td></tr>'}</tbody></table></div></div>`;
 }
+function tabExam(p){const e=p.exam;
+  const sysRows=e?EXAM_SYS.map(([k,en,id,nen,nid])=>{const x=(e.sys||{})[k]||{};if(!x.st)return '';return `<dt>${esc(id)}</dt><dd>${x.st==='a'?`<span class="pill allergy" style="margin-right:6px">Abnormal</span>`:'<span class="pill active" style="margin-right:6px">Normal</span>'}${esc(x.note||(x.st==='n'?nid:''))}</dd>`}).join(''):'';
+  return `<div class="row between"><h2 style="font-size:17px">Pemeriksaan Fisik</h2><button class="btn pri" data-act="exam">${ic(e?'edit':'plus')}${e?'Ubah pemeriksaan':'Isi pemeriksaan'}</button></div>
+  ${e?`<div class="card pad"><dl class="kv"><dt>Keadaan umum</dt><dd>${esc(lk(GC,e.gc,2)||'–')}</dd><dt>Kesadaran</dt><dd>${esc(lk(CONSC,e.consc,2)||'–')}</dd><dt>GCS</dt><dd class="mono">${gcsTot(e)!=null?`E${e.gcsE} V${e.gcsV} M${e.gcsM} = ${gcsTot(e)}`:'–'}</dd>${sysRows}</dl>${e.t?`<div class="xs muted" style="margin-top:10px">Diperiksa ${fDT(e.t)}</div>`:''}</div>`:`<div class="card empty">${ic('steth')}Belum ada pemeriksaan fisik.<br><span class="small">Gunakan tombol <b>Semua normal</b> lalu ubah sistem yang abnormal saja.</span></div>`}`}
+function tabObat(p){const ms=(p.meds||[]).slice().sort((a,b)=>a.t-b.t),adj=p.medAdj||[];
+  const days=[...new Set(ms.map(m=>new Date(m.t).toDateString()))];
+  return `<div class="row between"><h2 style="font-size:17px">Obat & Terapi</h2><button class="btn pri" data-act="addMed">${ic('plus')}Tambah obat</button></div>
+  ${ms.length?days.map(d=>`<div class="card pad"><div class="eyebrow" style="margin-bottom:8px">${fDate(new Date(d))}</div>${ms.filter(m=>new Date(m.t).toDateString()===d).map(m=>`<div class="row between" style="padding:8px 0;border-top:1px solid var(--line);flex-wrap:nowrap"><div style="min-width:0"><b>${esc([m.name,m.dose].filter(Boolean).join(' '))}</b><div class="xs muted">${fTime(m.t)} · ${esc([lk(ROUTES,m.route,2),lk(FREQS,m.freq,2),m.qty].filter(Boolean).join(' · ')||'–')}${m.note?' · '+esc(m.note):''}</div></div><div style="flex:none"><button class="iconbtn" data-edmed="${m.id}" aria-label="Edit">${ic('edit',16)}</button><button class="iconbtn" data-delmed="${m.id}" aria-label="Hapus">${ic('trash',16)}</button></div></div>`).join('')}</div>`).join(''):`<div class="card empty">${ic('steth')}Belum ada obat tercatat.</div>`}
+  <div class="card pad" style="display:flex;flex-direction:column;gap:10px"><div class="row between"><div><h2 style="font-size:16px">Penyesuaian obat rutin pasien</h2><div class="xs muted">Obat rutin: ${esc(p.identity.meds||'–')}</div></div><button class="btn sm" data-act="addAdj">${ic('plus',16)}Tambah</button></div>
+   ${adj.length?adj.map(a=>`<div class="row between" style="flex-wrap:nowrap;border-top:1px solid var(--line);padding-top:8px"><div style="min-width:0"><b>${esc(lk(ADJ,a.action,2))}</b> ${esc(a.drug)}${a.note?`<div class="xs muted">${esc(a.note)}</div>`:''}</div><div style="flex:none"><button class="iconbtn" data-edadj="${a.id}" aria-label="Edit">${ic('edit',16)}</button><button class="iconbtn" data-deladj="${a.id}" aria-label="Hapus">${ic('trash',16)}</button></div></div>`).join(''):'<span class="small muted">Tidak ada penyesuaian.</span>'}</div>`}
+function recCard(p){const r=p.recs||{},f=p.ftf||{};const items=(r.items||[]).map(k=>lk(RECS,k,2));
+  return `<div class="card pad" style="display:flex;flex-direction:column;gap:10px"><div class="row between"><h2 style="font-size:16px">Rekomendasi & Fit to Fly</h2><button class="btn sm" data-act="recs">${ic('edit',16)}Atur</button></div>
+   ${items.length||r.custom?`<ul style="margin:0;padding-left:20px">${items.map(x=>`<li>${esc(x)}</li>`).join('')}${String(r.custom||'').split('\n').filter(x=>x.trim()).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<span class="small muted">Belum ada rekomendasi.</span>'}
+   ${f.st?`<div class="newsbar" style="background:${f.st==='fit'?'var(--green-soft)':'var(--warn-soft)'}"><span><b>${f.st==='fit'?'Fit to Fly':'Belum Fit to Fly'}</b>${f.date?' · '+fDate(f.date):''}${f.note?' · '+esc(f.note):''}</span></div>`:''}</div>`}
 function tabAdv(p){const xs=p.advice.slice().sort((a,b)=>b.t-a.t);
-  return `<div class="row between"><h2 style="font-size:17px">Advice / Instruksi Dokter</h2>${p.status==='aktif'?`<button class="btn pri" data-act="addAdv">${ic('plus')}Tambah Advice</button>`:''}</div>
+  return `${recCard(p)}<div class="row between"><h2 style="font-size:17px">Diagnosis & Advice Dokter</h2>${p.status==='aktif'?`<button class="btn pri" data-act="addAdv">${ic('plus')}Tambah Advice</button>`:''}</div>
   ${xs.length?xs.map(x=>`<div class="card pad" style="display:flex;flex-direction:column;gap:10px"><div class="row between"><div class="row">${ic('steth')}<b>${esc(x.doctor||'Dokter')}</b><span class="xs muted mono">${fDT(x.t)}</span>${x.follow?`<span class="pill done">${esc(x.follow)}</span>`:''}</div><div><button class="iconbtn" data-edadv="${x.id}" aria-label="Edit">${ic('edit',16)}</button><button class="iconbtn" data-deladv="${x.id}" aria-label="Hapus">${ic('trash',16)}</button></div></div>
-   <dl class="kv"><dt>Diagnosis / kesan</dt><dd>${esc(x.dx||'–')}</dd><dt>Terapi / resep</dt><dd style="white-space:pre-wrap">${esc(x.rx||'–')}</dd><dt>Instruksi</dt><dd style="white-space:pre-wrap">${esc(x.plan||'–')}</dd></dl></div>`).join(''):`<div class="card empty">${ic('steth')}Belum ada advice dokter.</div>`}`}
+   <dl class="kv"><dt>Diagnosis / kesan</dt><dd>${esc(x.dx||'–')}${x.icd?` <span class="pill done mono">${esc(x.icd)}</span>`:''}</dd><dt>Terapi / resep</dt><dd style="white-space:pre-wrap">${esc(x.rx||'–')}</dd><dt>Instruksi</dt><dd style="white-space:pre-wrap">${esc(x.plan||'–')}</dd></dl></div>`).join(''):`<div class="card empty">${ic('steth')}Belum ada advice dokter.</div>`}`}
 function tabAct(p){const xs=p.actions.slice().sort((a,b)=>b.t-a.t);
   return `<div class="row between"><h2 style="font-size:17px">Tindakan Keperawatan</h2>${p.status==='aktif'?`<button class="btn pri" data-act="addAct">${ic('plus')}Tambah Tindakan</button>`:''}</div>
   ${xs.length?`<div class="card pad">${timeline(xs.map(x=>({t:x.t,k:'a',ttl:(x.items||[]).join(', ')||'Tindakan',txt:(x.detail||'')+(x.nurse?(x.detail?'\n':'')+'— '+x.nurse:''),chip:`<span><button class="iconbtn" data-edact="${x.id}" aria-label="Edit">${ic('edit',15)}</button><button class="iconbtn" data-delact="${x.id}" aria-label="Hapus">${ic('trash',15)}</button></span>`})))}</div>`:`<div class="card empty">${ic('hand')}Belum ada tindakan tercatat.</div>`}`}
@@ -797,6 +829,10 @@ function vSet(){const s=DB.settings,demo=DB.patients.filter(p=>p.demo).length;
     <div class="f"><label for="sdoc">Nama dokter</label><input id="sdoc" value="${esc(s.doctor)}"></div>
     <div class="f"><label for="snurse">Nama perawat</label><input id="snurse" value="${esc(s.nurse)}"></div></div>
     <div class="row"><button class="btn pri" data-act="saveSet">${ic('check')}Simpan</button></div>
+    <h3 style="margin-top:8px">Tanda tangan dokter</h3>
+    <p class="small muted" style="margin:0">Tercetak otomatis di Laporan Medis bila nama dokter pada data pasien sama dengan nama di sini.</p>
+    ${(s.signatures||[]).length?`<div style="display:flex;flex-direction:column;gap:8px">${s.signatures.map((g,k)=>`<div class="newsbar"><div class="row" style="gap:12px;flex-wrap:nowrap;min-width:0"><span style="background:#fff;border-radius:8px;padding:4px 8px;border:1px solid var(--line)"><img src="${g.img}" alt="Tanda tangan ${esc(g.name)}" style="height:38px;max-width:140px;object-fit:contain;display:block"></span><div style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis">${esc(g.name)}</b>${g.lic?`<span class="xs muted">License No. ${esc(g.lic)}</span>`:'<span class="xs muted">License Number belum diisi</span>'}</div></div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm" data-edsig="${k}">Ubah</button><button class="btn sm danger" data-delsig="${k}">Hapus</button></div></div>`).join('')}</div>`:''}
+    <div class="row"><button class="btn" data-act="addSig">${ic('edit')}Tambah tanda tangan dokter</button></div>
     <h3 style="margin-top:8px">Tampilan</h3><div class="seg">${[['light','Terang'],['system','Ikuti sistem'],['dark','Gelap']].map(([k,l])=>`<button class="${s.theme===k?'on':''}" data-theme-set="${k}">${l}</button>`).join('')}</div>
    </div>
    <div class="card fsec"><h3>Data & cadangan</h3>
@@ -828,6 +864,7 @@ function vSet(){const s=DB.settings,demo=DB.patients.filter(p=>p.demo).length;
 const ACT_EN={'Pemeriksaan fisik':'Physical examination','Pengukuran TTV':'Vital signs measurement','Pasang infus':'IV line insertion','Injeksi IV':'IV injection','Injeksi IM':'IM injection','Nebulisasi':'Nebulization','Pemberian O₂':'Oxygen therapy','Perawatan luka':'Wound care','Hecting':'Suturing','Cek GDS':'Blood glucose check','EKG':'ECG','Pemberian obat oral':'Oral medication','Kompres':'Compress','Edukasi pasien':'Patient education','Persiapan rujukan':'Referral preparation','Pendampingan evakuasi':'Evacuation escort'};
 const FOLLOW_EN={'Observasi':'Observation','Kontrol ulang':'Follow-up visit','Rujuk RS':'Hospital referral','Evakuasi medis':'Medical evacuation','Pulang / selesai':'Discharged'};
 const GLOSS=[
+ [/^\s*(?:diare|mencret)\s+(?:sejak|selama)\s+(\d+)\s*hari(?:\s+yang\s+lalu)?\s*$/i,'$1 days'],[/\bsejak\s+(\d+)\s*hari(?:\s+yang\s+lalu)?/gi,'for the past $1 days'],[/\b(\d+)\s*hari yang lalu\b/gi,'$1 days ago'],
  [/^\s*(tidak ada|tdk ada|tidak|disangkal|-)\s*\.?\s*$/i,'None'],[/\bmakan(?: dan| &)? minum sedikit\b/gi,'reduced oral intake'],[/\bnafsu makan (?:menurun|turun|berkurang)\b/gi,'decreased appetite'],[/\bBAB cair\b/gi,'watery stools'],[/\bBAB\b/g,'bowel movement'],[/\bBAK\b/g,'urination'],[/\blemas\b/gi,'weakness'],[/\bpusing\b/gi,'dizziness'],
  [/(\d),(\d)/g,'$1.$2'],[/\bIVFD\b/g,'IV fluid drip'],[/\bRL\b/g,"Ringer's lactate"],[/\bNaCl 0\.9 ?%/gi,'normal saline 0.9%'],[/\bD5 ?%?(?=\s|$|,)/g,'dextrose 5%'],
  [/\btpm\b/gi,'drops/min'],[/\blpm\b/gi,'L/min'],[/\bx\/mnt\b/gi,'per min'],[/\bAPS\b/g,'discharge against medical advice'],[/\bGDS\b/g,'random blood glucose'],
@@ -848,6 +885,11 @@ function trFields(p){
   const custom=new Set();p.actions.forEach(x=>(x.items||[]).forEach(it=>{if(!ACT_EN[it])custom.add(it)}));
   custom.forEach(it=>add('item.'+it,'Tindakan lain',it));
   p.actions.slice().sort((a,b)=>a.t-b.t).forEach(x=>add('act.'+x.id+'.detail','Detail tindakan '+fTime(x.t),x.detail));
+  if(p.exam)EXAM_SYS.forEach(([k,en,id])=>{const x=(p.exam.sys||{})[k];if(x&&x.note)add('ex.'+k,'Pemeriksaan '+id,x.note)});
+  (p.meds||[]).forEach(m=>add('m.'+m.id+'.note','Keterangan obat '+(m.name||''),m.note));
+  (p.medAdj||[]).forEach(a=>add('ma.'+a.id+'.note','Penyesuaian '+(a.drug||''),a.note));
+  if(p.recs)add('rec.custom','Rekomendasi lain',p.recs.custom);
+  if(p.ftf)add('ftf.note','Keterangan Fit to Fly',p.ftf.note);
   if(p.outcome)add('out.note','Catatan akhir',p.outcome.note);
   add('resume.note','Catatan tambahan laporan',p.resumeNote);
   return F;
@@ -864,7 +906,8 @@ async function translatePatient(p,force){
   trBusy=true;render();
   try{
     const j=await api({action:'translate',source:'id',target:'en',texts:todo.map(f=>gloss(f.src))});
-    todo.forEach((f,k)=>{p.en[f.key]={src:f.src,en:(j.translations[k]||'').trim(),edited:false}});
+    const fixPron=t=>p.identity.sex==='P'?t.replace(/\bhe\b/g,'she').replace(/\bHe\b/g,'She').replace(/\bhim\b/g,'her').replace(/\bhis\b/g,'her').replace(/\bHis\b/g,'Her').replace(/\bhimself\b/g,'herself'):p.identity.sex==='L'?t.replace(/\bshe\b/g,'he').replace(/\bShe\b/g,'He').replace(/\bherself\b/g,'himself'):t;
+    todo.forEach((f,k)=>{p.en[f.key]={src:f.src,en:fixPron((j.translations[k]||'').trim()),edited:false}});
     save();toast(todo.length+' teks diterjemahkan — mohon periksa sebelum diekspor');
   }catch(err){toast('Terjemahan gagal: '+(err.message==='Failed to fetch'?'tidak ada koneksi atau alamat salah':err.message))}
   trBusy=false;render();
@@ -882,11 +925,12 @@ function trPanel(p){
   </div>`;
 }
 
-const SERVER_CODE="/**\n * MITRA 911 ONCALL \u2014 Server Google Spreadsheet + Penerjemah otomatis\n * -------------------------------------------------------------------\n * Pasang skrip ini dari spreadsheet: Ekstensi > Apps Script.\n * 1) Ganti KUNCI di bawah dengan kata sandi tim (wajib).\n * 2) Jalankan fungsi \"setup\" sekali, izinkan akses.\n * 3) Terapkan > Deployment baru > Aplikasi web (Jalankan sebagai: Saya, Akses: Siapa saja).\n * 4) Tempel URL /exec dan KUNCI di aplikasi: Pengaturan > Server & sinkronisasi.\n */\nconst KUNCI = 'GANTI-KATA-SANDI-TIM';\nconst TZ = 'Asia/Jakarta';\n\nconst OUT = { hotel: 'Rawat di hotel / perbaikan', rujuk: 'Dirujuk ke RS', evak: 'Evakuasi medis', tolak: 'Menolak tindakan (APS)', lain: 'Lainnya' };\nconst DT = 'dd/MM/yyyy HH:mm';\nconst SHEETS = {\n  Pasien: [['ID', '@'], ['Server TS', '0'], ['Diperbarui (ms)', '0'], ['Status', '@'], ['Dihapus', '@'], ['Tgl Datang', DT], ['Nama', '@'], ['No. Paspor', '@'], ['Negara', '@'], ['JK', '@'], ['Usia', '0'], ['Hotel', '@'], ['Kamar', '@'], ['Telepon', '@'], ['Asuransi', '@'], ['Alergi', '@'], ['Keluhan Utama', '@'], ['Diagnosis', '@'], ['NEWS2 Terakhir', '0'], ['Hasil', '@'], ['Tujuan Rujukan', '@'], ['Waktu Selesai', DT], ['Dokter', '@'], ['Perawat', '@'], ['Diubah Oleh', '@'], ['JSON1', '@'], ['JSON2', '@'], ['JSON3', '@'], ['JSON4', '@']],\n  TTV: [['ID Pasien', '@'], ['Nama', '@'], ['No. Paspor', '@'], ['Waktu', DT], ['Sistolik', '0'], ['Diastolik', '0'], ['Nadi', '0'], ['RR', '0'], ['Suhu', '0.0'], ['SpO2', '0'], ['O2 Tambahan', '@'], ['AVPU', '@'], ['GDS', '0'], ['Nyeri', '0'], ['NEWS2', '0'], ['Catatan', '@'], ['ID TTV', '@']],\n  Advice: [['ID Pasien', '@'], ['Nama', '@'], ['Waktu', DT], ['Dokter', '@'], ['Diagnosis', '@'], ['Terapi', '@'], ['Instruksi', '@'], ['Tindak Lanjut', '@'], ['ID Advice', '@']],\n  Tindakan: [['ID Pasien', '@'], ['Nama', '@'], ['Waktu', DT], ['Perawat', '@'], ['Tindakan', '@'], ['Detail', '@'], ['ID Tindakan', '@']],\n  Log: [['Waktu', DT], ['Perangkat / Petugas', '@'], ['Aksi', '@'], ['Dikirim', '0'], ['Diterima', '0']]\n};\nconst P = name => SHEETS.Pasien.findIndex(h => h[0] === name); // 0-based\n\n/* ================= endpoint ================= */\nfunction doGet() { return out_({ ok: true, service: 'Mitra 911 OnCall server' }); }\n\nfunction doPost(e) {\n  let b;\n  try { b = JSON.parse((e.postData && e.postData.contents) || '{}'); } catch (x) { return out_({ ok: false, error: 'Format permintaan salah' }); }\n  if (!KUNCI || KUNCI === 'GANTI-KATA-SANDI-TIM') return out_({ ok: false, error: 'KUNCI di skrip belum diganti' });\n  if (b.key !== KUNCI) return out_({ ok: false, error: 'Kunci tidak cocok' });\n  const action = b.action || (b.texts ? 'translate' : 'ping');\n  try {\n    if (action === 'translate') return out_({ ok: true, translations: translate_(b) });\n    if (action === 'ping') {\n      const sh = sheet_('Pasien');\n      return out_({ ok: true, patients: Math.max(0, sh.getLastRow() - 1), sheetUrl: SpreadsheetApp.getActive().getUrl(), serverTime: Date.now() });\n    }\n    if (action === 'sync') return out_(sync_(b));\n    return out_({ ok: false, error: 'Aksi tidak dikenal' });\n  } catch (err) {\n    return out_({ ok: false, error: String((err && err.message) || err) });\n  }\n}\n\n/* ================= sinkronisasi ================= */\nfunction sync_(b) {\n  const lock = LockService.getScriptLock();\n  lock.waitLock(25000);\n  try {\n    const sh = sheet_('Pasien'), W = SHEETS.Pasien.length;\n    const now = Date.now(), dev = String(b.device || '').slice(0, 60);\n    const last = sh.getLastRow();\n    const idx = last > 1 ? sh.getRange(2, 1, last - 1, 3).getValues() : [];\n    const map = {};\n    idx.forEach((r, i) => { if (r[0]) map[r[0]] = { row: i + 2, ts: Number(r[1]) || 0, upd: Number(r[2]) || 0 }; });\n\n    const applied = [];\n    (b.changes || []).forEach(c => {\n      if (!c || !c.id) return;\n      const upd = Number(c.updatedAt) || 0, ex = map[c.id];\n      if (ex && upd < ex.upd) return;                       // versi server lebih baru\n      const row = c.deleted ? tombRow_(c, now, dev) : rowOf_(c, now, dev);\n      if (ex) { sh.getRange(ex.row, 1, 1, W).setValues([row]); ex.ts = now; ex.upd = upd; }\n      else { sh.appendRow(row); map[c.id] = { row: sh.getLastRow(), ts: now, upd: upd }; }\n      applied.push(c);\n    });\n    if (applied.length) rebuildChildren_(applied);\n\n    const since = Number(b.since) || 0, out = [];\n    const want = Object.keys(map).map(k => map[k]).filter(m => m.ts > since);\n    if (want.length) {\n      const data = sh.getRange(2, 1, sh.getLastRow() - 1, W).getValues();\n      const j = P('JSON1'), d = P('Dihapus');\n      want.forEach(m => {\n        const r = data[m.row - 2];\n        if (r[d] === 'YA') out.push({ id: r[0], deleted: true, updatedAt: Number(r[2]) || 0 });\n        else { try { out.push(JSON.parse(String(r[j]) + r[j + 1] + r[j + 2] + r[j + 3])); } catch (x) { } }\n      });\n    }\n    if (applied.length || out.length) log_(dev, 'sinkron', applied.length, out.length);\n    return { ok: true, serverTime: now, patients: out, applied: applied.length };\n  } finally {\n    lock.releaseLock();\n  }\n}\n\nfunction rowOf_(p, now, dev) {\n  const i = p.identity || {}, c = p.complaint || {}, o = p.outcome, t = p.team || {};\n  const vs = (p.vitals || []).slice().sort((a, b) => a.t - b.t), lv = vs[vs.length - 1];\n  const js = JSON.stringify(p);\n  if (js.length > 4 * 45000) throw new Error('Data pasien ' + (i.name || p.id) + ' terlalu besar');\n  const ch = [0, 1, 2, 3].map(k => js.substr(k * 45000, 45000));\n  return [p.id, now, Number(p.updatedAt) || now, p.status === 'aktif' ? 'Ditangani' : 'Selesai', '', d_(p.createdAt),\n    i.name || '', i.passport || '', i.nationality || '', i.sex || '', age_(i), i.hotel || '', i.room || '', i.phone || '',\n    i.insurance || '', i.allergy || '', c.summary || c.chief || '',\n    (p.advice || []).map(a => a.dx).filter(String).join('; '), lv ? news_(lv) : '',\n    o ? (OUT[o.type] || o.type || '') : '', o ? (o.dest || '') : '', o ? d_(o.t) : '',\n    t.doctor || '', t.nurse || '', dev].concat(ch);\n}\nfunction tombRow_(c, now, dev) {\n  const r = new Array(SHEETS.Pasien.length).fill('');\n  r[0] = c.id; r[1] = now; r[2] = Number(c.updatedAt) || now; r[3] = 'Dihapus'; r[4] = 'YA'; r[P('Diubah Oleh')] = dev;\n  return r;\n}\n\nfunction rebuildChildren_(list) {\n  const ids = {}; list.forEach(p => ids[p.id] = 1);\n  const live = list.filter(p => !p.deleted);\n  const nm = p => (p.identity && p.identity.name) || '';\n  const sets = {\n    TTV: live.flatMap(p => (p.vitals || []).map(v => [p.id, nm(p), (p.identity || {}).passport || '', d_(v.t), n_(v.sbp), n_(v.dbp), n_(v.hr), n_(v.rr), n_(v.temp), n_(v.spo2), v.o2 ? 'Ya' : '', v.avpu || '', n_(v.gds), n_(v.pain), news_(v), v.note || '', v.id || ''])),\n    Advice: live.flatMap(p => (p.advice || []).map(a => [p.id, nm(p), d_(a.t), a.doctor || '', a.dx || '', a.rx || '', a.plan || '', a.follow || '', a.id || ''])),\n    Tindakan: live.flatMap(p => (p.actions || []).map(a => [p.id, nm(p), d_(a.t), a.nurse || '', (a.items || []).join(', '), a.detail || '', a.id || '']))\n  };\n  Object.keys(sets).forEach(name => {\n    const sh = sheet_(name), W = SHEETS[name].length, last = sh.getLastRow();\n    const keep = last > 1 ? sh.getRange(2, 1, last - 1, W).getValues().filter(r => r[0] && !ids[r[0]]) : [];\n    const rows = keep.concat(sets[name]).sort((a, b) => (time_(a) - time_(b)));\n    if (last > 1) sh.getRange(2, 1, last - 1, W).clearContent();\n    if (rows.length) sh.getRange(2, 1, rows.length, W).setValues(rows);\n  });\n}\nfunction time_(r) { for (let k = 0; k < r.length; k++) if (r[k] instanceof Date) return r[k].getTime(); return 0; }\n\n/* ================= terjemahan ================= */\nfunction translate_(b) {\n  return (b.texts || []).slice(0, 300).map(t => {\n    t = String(t || '');\n    return t.trim() ? LanguageApp.translate(t, b.source || 'id', b.target || 'en') : '';\n  });\n}\n\n/* ================= utilitas ================= */\nfunction sheet_(name) {\n  const ss = SpreadsheetApp.getActive();\n  let sh = ss.getSheetByName(name);\n  if (sh) return sh;\n  const def = SHEETS[name];\n  sh = ss.insertSheet(name);\n  sh.getRange(1, 1, 1, def.length).setValues([def.map(h => h[0])]).setFontWeight('bold').setFontColor('#FFFFFF').setBackground('#17398C');\n  sh.setFrozenRows(1);\n  const rows = sh.getMaxRows() - 1;\n  def.forEach((h, k) => sh.getRange(2, k + 1, rows, 1).setNumberFormat(h[1]));\n  if (name === 'Pasien') {\n    const j = P('JSON1') + 1;\n    sh.hideColumns(2, 2); sh.hideColumns(j, 4);\n  }\n  sh.autoResizeColumns(1, def.length);\n  return sh;\n}\nfunction log_(dev, aksi, kirim, terima) {\n  const sh = sheet_('Log');\n  sh.appendRow([new Date(), dev || '-', aksi, kirim, terima]);\n  if (sh.getLastRow() > 5000) sh.deleteRows(2, 1000);\n}\nfunction d_(ms) { return ms ? new Date(Number(ms)) : ''; }\nfunction n_(v) { return v === '' || v === null || v === undefined || isNaN(Number(v)) ? '' : Number(v); }\nfunction age_(i) {\n  if (i.dob) { const d = new Date(i.dob), n = new Date(); let a = n.getFullYear() - d.getFullYear(); if (n < new Date(n.getFullYear(), d.getMonth(), d.getDate())) a--; return isNaN(a) ? '' : a; }\n  return n_(i.age);\n}\nfunction news_(v) {\n  const f = { rr: x => x <= 8 ? 3 : x <= 11 ? 1 : x <= 20 ? 0 : x <= 24 ? 2 : 3, spo2: x => x <= 91 ? 3 : x <= 93 ? 2 : x <= 95 ? 1 : 0, sbp: x => x <= 90 ? 3 : x <= 100 ? 2 : x <= 110 ? 1 : x <= 219 ? 0 : 3, hr: x => x <= 40 ? 3 : x <= 50 ? 1 : x <= 90 ? 0 : x <= 110 ? 1 : x <= 130 ? 2 : 3, temp: x => x <= 35 ? 3 : x <= 36 ? 1 : x <= 38 ? 0 : x <= 39 ? 1 : 2 };\n  let t = 0, n = 0;\n  Object.keys(f).forEach(k => { const x = n_(v[k]); if (x !== '') { t += f[k](x); n++; } });\n  if (!n) return '';\n  if (v.o2) t += 2;\n  if (v.avpu && v.avpu !== 'A') t += 3;\n  return t;\n}\nfunction out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }\n\n/* ================= jalankan sekali ================= */\nfunction setup() {\n  const ss = SpreadsheetApp.getActive();\n  ss.setSpreadsheetTimeZone(TZ);\n  Object.keys(SHEETS).forEach(sheet_);\n  ['Sheet1', 'Lembar1', 'Sheet 1'].forEach(n => { const s = ss.getSheetByName(n); if (s && s.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(s); });\n  Logger.log(LanguageApp.translate('Pasien mual dan muntah', 'id', 'en'));\n  Logger.log('Siap. Spreadsheet: ' + ss.getUrl());\n}\n\nfunction onOpen() {\n  SpreadsheetApp.getUi().createMenu('Mitra 911').addItem('Siapkan / perbaiki sheet', 'setup').addToUi();\n}\n";//END_SERVER_CODE
+const SERVER_CODE="/**\n * MITRA 911 ONCALL \u2014 Server Google Spreadsheet + Penerjemah otomatis\n * -------------------------------------------------------------------\n * Pasang skrip ini dari spreadsheet: Ekstensi > Apps Script.\n * 1) Ganti KUNCI di bawah dengan kata sandi tim (wajib).\n * 2) Jalankan fungsi \"setup\" sekali, izinkan akses.\n * 3) Terapkan > Deployment baru > Aplikasi web (Jalankan sebagai: Saya, Akses: Siapa saja).\n * 4) Tempel URL /exec dan KUNCI di aplikasi: Pengaturan > Server & sinkronisasi.\n */\nconst KUNCI = 'GANTI-KATA-SANDI-TIM';\nconst TZ = 'Asia/Jakarta';\n/** No. Rekam Medis: BULAN(2) + TAHUN(2) + TANGGAL(2) + URUT HARIAN(3), mis. 9 Okt 2026 pasien ke-1 = 10 26 09 001 = 102609001 */\n\nconst OUT = { hotel: 'Rawat di hotel / perbaikan', rujuk: 'Dirujuk ke RS', evak: 'Evakuasi medis', tolak: 'Menolak tindakan (APS)', lain: 'Lainnya' };\nconst DT = 'dd/MM/yyyy HH:mm';\nconst SHEETS = {\n  Pasien: [['ID', '@'], ['Server TS', '0'], ['Diperbarui (ms)', '0'], ['Status', '@'], ['Dihapus', '@'], ['Tgl Datang', DT], ['Nama', '@'], ['No. Paspor', '@'], ['Negara', '@'], ['JK', '@'], ['Usia', '0'], ['Hotel', '@'], ['Kamar', '@'], ['Telepon', '@'], ['Asuransi', '@'], ['Alergi', '@'], ['Keluhan Utama', '@'], ['Diagnosis', '@'], ['NEWS2 Terakhir', '0'], ['Hasil', '@'], ['Tujuan Rujukan', '@'], ['Waktu Selesai', DT], ['Dokter', '@'], ['Perawat', '@'], ['Diubah Oleh', '@'], ['JSON1', '@'], ['JSON2', '@'], ['JSON3', '@'], ['JSON4', '@'], ['No. RM', '@']],\n  TTV: [['ID Pasien', '@'], ['Nama', '@'], ['No. Paspor', '@'], ['Waktu', DT], ['Sistolik', '0'], ['Diastolik', '0'], ['Nadi', '0'], ['RR', '0'], ['Suhu', '0.0'], ['SpO2', '0'], ['O2 Tambahan', '@'], ['AVPU', '@'], ['GDS', '0'], ['Nyeri', '0'], ['NEWS2', '0'], ['Catatan', '@'], ['ID TTV', '@']],\n  Advice: [['ID Pasien', '@'], ['Nama', '@'], ['Waktu', DT], ['Dokter', '@'], ['Diagnosis', '@'], ['Terapi', '@'], ['Instruksi', '@'], ['Tindak Lanjut', '@'], ['ID Advice', '@']],\n  Obat: [['ID Pasien', '@'], ['Nama', '@'], ['No. RM', '@'], ['Waktu', DT], ['Nama Obat', '@'], ['Dosis', '@'], ['Rute', '@'], ['Frekuensi', '@'], ['Jumlah / Durasi', '@'], ['Keterangan', '@'], ['ID Obat', '@']],\n  Tindakan: [['ID Pasien', '@'], ['Nama', '@'], ['Waktu', DT], ['Perawat', '@'], ['Tindakan', '@'], ['Detail', '@'], ['ID Tindakan', '@']],\n  Log: [['Waktu', DT], ['Perangkat / Petugas', '@'], ['Aksi', '@'], ['Dikirim', '0'], ['Diterima', '0']]\n};\nconst P = name => SHEETS.Pasien.findIndex(h => h[0] === name); // 0-based\n\n/* ================= endpoint ================= */\nfunction doGet() { return out_({ ok: true, service: 'Mitra 911 OnCall server' }); }\n\nfunction doPost(e) {\n  let b;\n  try { b = JSON.parse((e.postData && e.postData.contents) || '{}'); } catch (x) { return out_({ ok: false, error: 'Format permintaan salah' }); }\n  if (!KUNCI || KUNCI === 'GANTI-KATA-SANDI-TIM') return out_({ ok: false, error: 'KUNCI di skrip belum diganti' });\n  if (b.key !== KUNCI) return out_({ ok: false, error: 'Kunci tidak cocok' });\n  const action = b.action || (b.texts ? 'translate' : 'ping');\n  try {\n    if (action === 'translate') return out_({ ok: true, translations: translate_(b) });\n    if (action === 'ping') {\n      const sh = sheet_('Pasien');\n      return out_({ ok: true, patients: Math.max(0, sh.getLastRow() - 1), sheetUrl: SpreadsheetApp.getActive().getUrl(), serverTime: Date.now() });\n    }\n    if (action === 'sync') return out_(sync_(b));\n    if (action === 'saveFile') return out_(saveFile_(b));\n    return out_({ ok: false, error: 'Aksi tidak dikenal' });\n  } catch (err) {\n    return out_({ ok: false, error: String((err && err.message) || err) });\n  }\n}\n\n/* ================= sinkronisasi ================= */\nfunction sync_(b) {\n  const lock = LockService.getScriptLock();\n  lock.waitLock(25000);\n  try {\n    const sh = sheet_('Pasien'), W = SHEETS.Pasien.length, MRC = P('No. RM');\n    if (sh.getRange(1, MRC + 1).getValue() !== 'No. RM') sh.getRange(1, MRC + 1).setValue('No. RM').setFontWeight('bold').setFontColor('#FFFFFF').setBackground('#17398C');\n    const now = Date.now(), dev = String(b.device || '').slice(0, 60);\n    const last = sh.getLastRow();\n    const idx = last > 1 ? sh.getRange(2, 1, last - 1, 3).getValues() : [];\n    const mrs = last > 1 ? sh.getRange(2, MRC + 1, last - 1, 1).getValues().map(r => String(r[0] || '')) : [];\n    const map = {};\n    idx.forEach((r, i) => { if (r[0]) map[r[0]] = { row: i + 2, ts: Number(r[1]) || 0, upd: Number(r[2]) || 0, mr: mrs[i] || '' }; });\n    const mrPre = created => Utilities.formatDate(new Date(Number(created) || now), TZ, 'MMyydd');\n    const nextMr = created => {\n      const pre = mrPre(created);\n      let mx = 0; Object.keys(map).forEach(k => { const m = map[k].mr; if (m && m.indexOf(pre) === 0) { const n = Number(m.slice(pre.length)); if (n > mx) mx = n; } });\n      const n = mx + 1; return pre + (n < 1000 ? ('00' + n).slice(-3) : String(n));\n    };\n\n    const applied = [];\n    (b.changes || []).forEach(c => {\n      if (!c || !c.id) return;\n      const upd = Number(c.updatedAt) || 0, ex = map[c.id];\n      if (ex && upd < ex.upd) return;                       // versi server lebih baru\n      if (!c.deleted && !c.demo) {\n        const pre = mrPre(c.createdAt), ok = m => m && String(m).length === pre.length + 3 && String(m).indexOf(pre) === 0;\n        if (ex && ok(ex.mr)) c.mr = ex.mr; else if (!ok(c.mr)) c.mr = nextMr(c.createdAt);\n      }\n      const row = c.deleted ? tombRow_(c, now, dev) : rowOf_(c, now, dev);\n      if (ex) { sh.getRange(ex.row, 1, 1, W).setValues([row]); ex.ts = now; ex.upd = upd; ex.mr = c.mr || ex.mr; }\n      else { sh.appendRow(row); map[c.id] = { row: sh.getLastRow(), ts: now, upd: upd, mr: c.mr || '' }; }\n      applied.push(c);\n    });\n    if (applied.length) rebuildChildren_(applied);\n\n    const since = Number(b.since) || 0, out = [];\n    const want = Object.keys(map).map(k => map[k]).filter(m => m.ts > since);\n    if (want.length) {\n      const data = sh.getRange(2, 1, sh.getLastRow() - 1, W).getValues();\n      const j = P('JSON1'), d = P('Dihapus');\n      want.forEach(m => {\n        const r = data[m.row - 2];\n        if (r[d] === 'YA') out.push({ id: r[0], deleted: true, updatedAt: Number(r[2]) || 0 });\n        else { try { out.push(JSON.parse(String(r[j]) + r[j + 1] + r[j + 2] + r[j + 3])); } catch (x) { } }\n      });\n    }\n    if (applied.length || out.length) log_(dev, 'sinkron', applied.length, out.length);\n    return { ok: true, serverTime: now, patients: out, applied: applied.length };\n  } finally {\n    lock.releaseLock();\n  }\n}\n\nfunction rowOf_(p, now, dev) {\n  const i = p.identity || {}, c = p.complaint || {}, o = p.outcome, t = p.team || {};\n  const vs = (p.vitals || []).slice().sort((a, b) => a.t - b.t), lv = vs[vs.length - 1];\n  const js = JSON.stringify(p);\n  if (js.length > 4 * 45000) throw new Error('Data pasien ' + (i.name || p.id) + ' terlalu besar');\n  const ch = [0, 1, 2, 3].map(k => js.substr(k * 45000, 45000));\n  return [p.id, now, Number(p.updatedAt) || now, p.status === 'aktif' ? 'Ditangani' : 'Selesai', '', d_(p.createdAt),\n    i.name || '', i.passport || '', i.nationality || '', i.sex || '', age_(i), i.hotel || '', i.room || '', i.phone || '',\n    i.insurance || '', i.allergy || '', c.summary || c.chief || '',\n    (p.advice || []).map(a => (a.dx || '') + (a.icd ? ' (' + a.icd + ')' : '')).filter(String).join('; '), lv ? news_(lv) : '',\n    o ? (OUT[o.type] || o.type || '') : '', o ? (o.dest || '') : '', o ? d_(o.t) : '',\n    t.doctor || '', t.nurse || '', dev].concat(ch).concat([p.mr || '']);\n}\nfunction tombRow_(c, now, dev) {\n  const r = new Array(SHEETS.Pasien.length).fill('');\n  r[0] = c.id; r[1] = now; r[2] = Number(c.updatedAt) || now; r[3] = 'Dihapus'; r[4] = 'YA'; r[P('Diubah Oleh')] = dev;\n  return r;\n}\n\nfunction rebuildChildren_(list) {\n  const ids = {}; list.forEach(p => ids[p.id] = 1);\n  const live = list.filter(p => !p.deleted);\n  const nm = p => (p.identity && p.identity.name) || '';\n  const sets = {\n    TTV: live.flatMap(p => (p.vitals || []).map(v => [p.id, nm(p), (p.identity || {}).passport || '', d_(v.t), n_(v.sbp), n_(v.dbp), n_(v.hr), n_(v.rr), n_(v.temp), n_(v.spo2), v.o2 ? 'Ya' : '', v.avpu || '', n_(v.gds), n_(v.pain), news_(v), v.note || '', v.id || ''])),\n    Advice: live.flatMap(p => (p.advice || []).map(a => [p.id, nm(p), d_(a.t), a.doctor || '', a.dx || '', a.rx || '', a.plan || '', a.follow || '', a.id || ''])),\n    Obat: live.flatMap(p => (p.meds || []).map(m => [p.id, nm(p), p.mr || '', d_(m.t), m.name || '', m.dose || '', m.route || '', m.freq || '', m.qty || '', m.note || '', m.id || ''])),\n    Tindakan: live.flatMap(p => (p.actions || []).map(a => [p.id, nm(p), d_(a.t), a.nurse || '', (a.items || []).join(', '), a.detail || '', a.id || '']))\n  };\n  Object.keys(sets).forEach(name => {\n    const sh = sheet_(name), W = SHEETS[name].length, last = sh.getLastRow();\n    const keep = last > 1 ? sh.getRange(2, 1, last - 1, W).getValues().filter(r => r[0] && !ids[r[0]]) : [];\n    const rows = keep.concat(sets[name]).sort((a, b) => (time_(a) - time_(b)));\n    if (last > 1) sh.getRange(2, 1, last - 1, W).clearContent();\n    if (rows.length) sh.getRange(2, 1, rows.length, W).setValues(rows);\n  });\n}\nfunction time_(r) { for (let k = 0; k < r.length; k++) if (r[k] instanceof Date) return r[k].getTime(); return 0; }\n\n/* ================= simpan file ke Google Drive ================= */\nfunction folder_() {\n  const props = PropertiesService.getScriptProperties();\n  const id = props.getProperty('FOLDER_ID');\n  if (id) { try { const f = DriveApp.getFolderById(id); if (!f.isTrashed()) return f; } catch (e) { } }\n  const ssFile = DriveApp.getFileById(SpreadsheetApp.getActive().getId());\n  const parents = ssFile.getParents();\n  const parent = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();\n  const f = parent.createFolder('Mitra 911 - Laporan & Kronologi');\n  props.setProperty('FOLDER_ID', f.getId());\n  return f;\n}\nfunction saveFile_(b) {\n  const name = String(b.name || 'file').replace(/[\\\\/:*?\"<>|]/g, '_').slice(0, 150);\n  const mime = String(b.mime || 'application/octet-stream');\n  if (!b.data) throw new Error('File kosong');\n  const blob = Utilities.newBlob(Utilities.base64Decode(b.data), mime, name);\n  const root = folder_();\n  const month = Utilities.formatDate(new Date(), TZ, 'yyyy-MM');\n  const it = root.getFoldersByName(month);\n  const dir = it.hasNext() ? it.next() : root.createFolder(month);\n  const file = dir.createFile(blob);\n  log_(String(b.device || ''), 'simpan file: ' + name, 0, 0);\n  return { ok: true, url: file.getUrl(), id: file.getId(), download: 'https://drive.google.com/uc?export=download&id=' + file.getId(), folderUrl: root.getUrl() };\n}\n\n/* ================= terjemahan ================= */\nfunction translate_(b) {\n  return (b.texts || []).slice(0, 300).map(t => {\n    t = String(t || '');\n    return t.trim() ? LanguageApp.translate(t, b.source || 'id', b.target || 'en') : '';\n  });\n}\n\n/* ================= utilitas ================= */\nfunction sheet_(name) {\n  const ss = SpreadsheetApp.getActive();\n  let sh = ss.getSheetByName(name);\n  const def = SHEETS[name];\n  if (sh) { if (sh.getMaxColumns() < def.length) sh.insertColumnsAfter(sh.getMaxColumns(), def.length - sh.getMaxColumns()); return sh; }\n  sh = ss.insertSheet(name);\n  if (sh.getMaxColumns() < def.length) sh.insertColumnsAfter(sh.getMaxColumns(), def.length - sh.getMaxColumns());\n  sh.getRange(1, 1, 1, def.length).setValues([def.map(h => h[0])]).setFontWeight('bold').setFontColor('#FFFFFF').setBackground('#17398C');\n  sh.setFrozenRows(1);\n  const rows = sh.getMaxRows() - 1;\n  def.forEach((h, k) => sh.getRange(2, k + 1, rows, 1).setNumberFormat(h[1]));\n  if (name === 'Pasien') {\n    const j = P('JSON1') + 1;\n    sh.hideColumns(2, 2); sh.hideColumns(j, 4);\n  }\n  sh.autoResizeColumns(1, def.length);\n  return sh;\n}\nfunction log_(dev, aksi, kirim, terima) {\n  const sh = sheet_('Log');\n  sh.appendRow([new Date(), dev || '-', aksi, kirim, terima]);\n  if (sh.getLastRow() > 5000) sh.deleteRows(2, 1000);\n}\nfunction d_(ms) { return ms ? new Date(Number(ms)) : ''; }\nfunction n_(v) { return v === '' || v === null || v === undefined || isNaN(Number(v)) ? '' : Number(v); }\nfunction age_(i) {\n  if (i.dob) { const d = new Date(i.dob), n = new Date(); let a = n.getFullYear() - d.getFullYear(); if (n < new Date(n.getFullYear(), d.getMonth(), d.getDate())) a--; return isNaN(a) ? '' : a; }\n  return n_(i.age);\n}\nfunction news_(v) {\n  const f = { rr: x => x <= 8 ? 3 : x <= 11 ? 1 : x <= 20 ? 0 : x <= 24 ? 2 : 3, spo2: x => x <= 91 ? 3 : x <= 93 ? 2 : x <= 95 ? 1 : 0, sbp: x => x <= 90 ? 3 : x <= 100 ? 2 : x <= 110 ? 1 : x <= 219 ? 0 : 3, hr: x => x <= 40 ? 3 : x <= 50 ? 1 : x <= 90 ? 0 : x <= 110 ? 1 : x <= 130 ? 2 : 3, temp: x => x <= 35 ? 3 : x <= 36 ? 1 : x <= 38 ? 0 : x <= 39 ? 1 : 2 };\n  let t = 0, n = 0;\n  Object.keys(f).forEach(k => { const x = n_(v[k]); if (x !== '') { t += f[k](x); n++; } });\n  if (!n) return '';\n  if (v.o2) t += 2;\n  if (v.avpu && v.avpu !== 'A') t += 3;\n  return t;\n}\nfunction out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }\n\n/* ================= jalankan sekali ================= */\nfunction setup() {\n  const ss = SpreadsheetApp.getActive();\n  ss.setSpreadsheetTimeZone(TZ);\n  Object.keys(SHEETS).forEach(sheet_);\n  ['Sheet1', 'Lembar1', 'Sheet 1'].forEach(n => { const s = ss.getSheetByName(n); if (s && s.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(s); });\n  Logger.log(LanguageApp.translate('Pasien mual dan muntah', 'id', 'en'));\n  Logger.log('Folder Drive laporan: ' + folder_().getUrl());\n  Logger.log('Siap. Spreadsheet: ' + ss.getUrl());\n}\n\nfunction onOpen() {\n  SpreadsheetApp.getUi().createMenu('Mitra 911').addItem('Siapkan / perbaiki sheet', 'setup').addToUi();\n}\n";//END_SERVER_CODE
 
 /* ---------- resume medis ---------- */
 const RL={
  en:{title:'MEDICAL REPORT',sub:'Laporan Pemeriksaan Medis',ref:'Ref. No.',
+  sDx:'Diagnosis',sSubj:'Subjective',sObj:'Objective',sGC:'General Condition',sVS:'Vital Signs',sPE:'Physical Examination',sTx:'Treatment & Medications',sAdj:'Chronic Medication Adjustments',sRxFree:'Additional Treatment',sAdv:'Advice & Recommendations',mr:'MR Number',contact:'Contact person',gc:'General condition',consc:'Consciousness',gcs:'GCS',allergyD:'Drug allergies',histP:'Past medical history',medsC:'Current medications',oral:'Oral Medication',inj:'Intravenous (IV) & Injection Therapy',oth:'Other Medications',initial:'Initial',fu:'Follow-up',given:'given at',ftfY:'Fit to Fly: The patient is medically declared fit to fly on',ftfN:'Fit to Fly: The patient is not yet fit to fly as of',dateR:'Date',
   s1:'Patient Information',s2:'Visit Details',s3:'Clinical Summary',s4:'Chief Complaint & History',s5:'Vital Signs',s6:'Assessment / Diagnosis',s7:'Treatment & Medication',s8:'Nursing Procedures',s9:'Physician Instructions & Follow-up',s10:'Disposition',s11:'Additional Notes',
   name:'Full name',pass:'Passport no.',nat:'Country',dob:'Date of birth / Age',age:'Age',noneVal:'None',sex:'Sex',lang:'Language',hotel:'Hotel',phone:'Phone',ins:'Insurance',allergy:'Allergy',comp:'Companion',
   date:'Visit date',arr:'Arrival time',end:'Completion time',dur:'Duration',doc:'Attending physician',nurse:'Nurse',
@@ -895,9 +939,10 @@ const RL={
   first:'Initial',last:'Latest',proc:'Procedure',detail:'Details',by:'By',instr:'Instructions',follow:'Follow-up',
   outcome:'Outcome',dest:'Destination facility',fnote:'Final note',under:'The patient remains under care.',uhr:'bpm',urr:'breaths/min',notRec:'Not recorded',
   signDoc:'Attending Physician',signNurse:'Nurse',none:'None known',male:'Male',female:'Female',y:'years',
-  gen:'Examination performed by the attending physician under their practice licence. Mitra 911 · On-call & Home Care Services',lic:'SIP No.',page:'Page',of:'of',noData:'—',
+  gen:'Examination performed by the attending physician under their practice licence. Mitra 911 · On-call & Home Care Services',lic:'License Number:',page:'Page',of:'of',noData:'—',
   out:{hotel:'Treated at hotel / improved',rujuk:'Referred to hospital',evak:'Medical evacuation',tolak:'Refused treatment (against medical advice)',lain:'Other'}},
  id:{title:'LAPORAN PEMERIKSAAN MEDIS',sub:'Medical Report',ref:'No. Ref.',
+  sDx:'Diagnosis',sSubj:'Subjektif',sObj:'Objektif',sGC:'Keadaan Umum',sVS:'Tanda-Tanda Vital',sPE:'Pemeriksaan Fisik',sTx:'Terapi & Obat',sAdj:'Penyesuaian Obat Rutin',sRxFree:'Terapi Tambahan',sAdv:'Saran & Rekomendasi',mr:'No. Rekam Medis',contact:'Kontak darurat',gc:'Keadaan umum',consc:'Kesadaran',gcs:'GCS',allergyD:'Alergi obat',histP:'Riwayat penyakit',medsC:'Obat rutin',oral:'Obat Oral',inj:'Terapi Intravena (IV) & Injeksi',oth:'Obat Lain',initial:'Awal',fu:'Lanjutan',given:'diberikan pukul',ftfY:'Fit to Fly: Pasien dinyatakan layak terbang (fit to fly) pada',ftfN:'Fit to Fly: Pasien belum layak terbang per',dateR:'Tanggal',
   s1:'Identitas Pasien',s2:'Data Kunjungan',s3:'Ringkasan Klinis',s4:'Keluhan & Riwayat',s5:'Tanda-Tanda Vital',s6:'Diagnosis / Kesan Klinis',s7:'Terapi & Obat',s8:'Tindakan Keperawatan',s9:'Instruksi Dokter & Tindak Lanjut',s10:'Hasil Penanganan',s11:'Catatan Tambahan',
   name:'Nama lengkap',pass:'No. paspor',nat:'Negara',dob:'Tgl lahir / Usia',age:'Usia',noneVal:'Tidak ada',sex:'Jenis kelamin',lang:'Bahasa',hotel:'Hotel',phone:'Telepon',ins:'Asuransi',allergy:'Alergi',comp:'Pendamping',
   date:'Tanggal kunjungan',arr:'Waktu tiba',end:'Waktu selesai',dur:'Durasi',doc:'Dokter',nurse:'Perawat',
@@ -906,7 +951,7 @@ const RL={
   first:'Awal',last:'Terakhir',proc:'Tindakan',detail:'Keterangan',by:'Oleh',instr:'Instruksi',follow:'Tindak lanjut',
   outcome:'Hasil',dest:'Fasilitas tujuan',fnote:'Catatan akhir',under:'Pasien masih dalam penanganan.',
   signDoc:'Dokter Pemeriksa',signNurse:'Perawat',none:'Tidak ada',male:'Laki-laki',female:'Perempuan',y:'th',uhr:'x/menit',urr:'x/menit',notRec:'Tidak dicatat',
-  gen:'Pemeriksaan dilakukan oleh dokter pemeriksa berdasarkan izin praktiknya. Mitra 911 · Layanan On-call & Home Care',lic:'No. SIP',page:'Hal.',of:'dari',noData:'—',
+  gen:'Pemeriksaan dilakukan oleh dokter pemeriksa berdasarkan izin praktiknya. Mitra 911 · Layanan On-call & Home Care',lic:'No. SIP:',page:'Hal.',of:'dari',noData:'—',
   out:{hotel:'Rawat di hotel / perbaikan',rujuk:'Dirujuk ke RS',evak:'Evakuasi medis',tolak:'Menolak tindakan (APS)',lain:'Lainnya'}}
 };
 const NAT_EN=Object.fromEntries(COUNTRIES.map(c=>[c[0].toLowerCase(),c[3]]));
@@ -934,7 +979,7 @@ function buildResume(p,lang){
   const endT=po?.t;
   // narrative
   const itemsTxt=(p.complaint.items||[]).map(k=>cmpL(k,lang));
-  const pBase=itemsTxt.length?natList(itemsTxt.map(x=>x.toLowerCase()),lang):lc1(c.chief),pPar=[itemsTxt.length?c.chief:'',c.onset?'onset: '+c.onset:''].filter(Boolean);
+  const pBase=itemsTxt.length?natList(itemsTxt.map(x=>x.toLowerCase()),lang):lc1(c.chief),pPar=[itemsTxt.length?noDot(c.chief):'',c.onset?'onset: '+noDot(c.onset):''].filter(Boolean);
   const presentTxt=pBase?pBase+(pPar.length?` (${pPar.join('; ')})`:''):'';
   let nar;
   if(lang==='en'){
@@ -944,52 +989,96 @@ function buildResume(p,lang){
     nar=`${who.replace(/,$/,'')}${i.passport?` (passport ${i.passport})`:''}${i.hotel?`, staying at ${i.hotel}${i.room?', room '+i.room+',':''}`:''}${i.hotel&&i.room?'':','} was seen by the Mitra 911 on-call team on ${dLong(p.createdAt,'en')} at ${fTime(p.createdAt)}, presenting with ${presentTxt||'—'}.`;
     if(i.allergy&&!isNone(i.allergy)&&!isNone(p.identity.allergy))nar+=` Known allergy: ${i.allergy}.`;
     if(v0)nar+=` Initial vital signs: ${vStr(v0,L)}${news(v0)?`, NEWS2 score ${news(v0).total}`:''}.`;
+    if(p.exam){const e=p.exam,gcT=lk(GC,e.gc,1),co=lk(CONSC,e.consc,1);if(gcT||co||gcsTot(e)!=null)nar+=` General condition was ${[gcT&&gcT.toLowerCase(),co&&co.replace(/ \(.*\)/,'').toLowerCase(),gcsTot(e)!=null?'GCS '+gcsTot(e):''].filter(Boolean).join(', ')}.`;
+      const ab=EXAM_SYS.filter(r=>(e.sys||{})[r[0]]?.st==='a').map(r=>r[1].toLowerCase()+' — '+noDot(lc1(T('ex.'+r[0],e.sys[r[0]].note)||'abnormal')));if(ab.length)nar+=` Physical examination revealed: ${ab.join('; ')}.`;}
     if(dxs.length)nar+=` Clinical assessment: ${dxs.join('; ')}.`;
+    if((p.meds||[]).length){const ml=(p.meds||[]).slice().sort((x,y)=>x.t-y.t).map(m=>[m.name,m.dose,m.route?lk(ROUTES,m.route,1):''].filter(Boolean).join(' '));nar+=` Medications given: ${ml.slice(0,6).join(', ')}${ml.length>6?' and others':''}.`}
     if(items.length)nar+=` Management included ${natList(items.map(lc1),'en')}.`;
     if(vN&&vN!==v0)nar+=` Latest vital signs at ${fTime(vN.t)}: ${vStr(vN,L)}${news(vN)?`, NEWS2 score ${news(vN).total}`:''}.`;
-    nar+=po?` Outcome: ${L.out[po.type]||''}${po.dest?` (${po.dest})`:''}, completed at ${fTime(endT)} after ${durEn(endT-p.createdAt)}.`:' '+L.under;
+    nar+=po?` Outcome: ${L.out[po.type]||''}${po.dest?` (${po.dest})`:''}, completed at ${fTime(endT)}${sameDay(endT,p.createdAt)?` after ${durEn(endT-p.createdAt)}`:` on ${dLong(endT,'en')}`}.`:' '+L.under;
+    if(p.ftf&&p.ftf.st)nar+=p.ftf.st==='fit'?` The patient was declared fit to fly${p.ftf.date?' on '+dLong(p.ftf.date,'en'):''}.`:` The patient was not yet fit to fly${p.ftf.date?' as of '+dLong(p.ftf.date,'en'):''}.`;
   }else{
     const who=`${i.name}${a!=null?`, ${sexW.toLowerCase()} usia ${a} tahun`:''}${i.nationality?`, warga negara ${i.nationality}`:''}`;
     nar=`${who}${i.passport?` (paspor ${i.passport})`:''}${i.hotel?`, menginap di ${i.hotel}${i.room?' kamar '+i.room:''}`:''}, ditangani tim on call Mitra 911 pada ${dLong(p.createdAt,'id')} pukul ${fTime(p.createdAt)} dengan keluhan ${presentTxt||'—'}.`;
     if(i.allergy&&!isNone(i.allergy))nar+=` Riwayat alergi: ${i.allergy}.`;
     if(v0)nar+=` TTV awal: ${vStr(v0,L)}${news(v0)?`, skor NEWS2 ${news(v0).total}`:''}.`;
+    if(p.exam){const e=p.exam,gcT=lk(GC,e.gc,2),co=lk(CONSC,e.consc,2);if(gcT||co||gcsTot(e)!=null)nar+=` Keadaan umum ${[gcT&&gcT.toLowerCase(),co&&co.toLowerCase(),gcsTot(e)!=null?'GCS '+gcsTot(e):''].filter(Boolean).join(', ')}.`;
+      const ab=EXAM_SYS.filter(r=>(e.sys||{})[r[0]]?.st==='a').map(r=>r[2].toLowerCase()+' — '+noDot(e.sys[r[0]].note||'abnormal'));if(ab.length)nar+=` Pemeriksaan fisik: ${ab.join('; ')}.`;}
     if(dxs.length)nar+=` Kesan klinis: ${dxs.join('; ')}.`;
+    if((p.meds||[]).length){const ml=(p.meds||[]).slice().sort((x,y)=>x.t-y.t).map(m=>[m.name,m.dose,m.route?lk(ROUTES,m.route,2):''].filter(Boolean).join(' '));nar+=` Obat yang diberikan: ${ml.slice(0,6).join(', ')}${ml.length>6?', dan lainnya':''}.`}
     if(items.length)nar+=` Tindakan yang diberikan: ${natList(items.map(lc1),'id')}.`;
     if(vN&&vN!==v0)nar+=` TTV terakhir pukul ${fTime(vN.t)}: ${vStr(vN,L)}${news(vN)?`, skor NEWS2 ${news(vN).total}`:''}.`;
-    nar+=po?` Hasil: ${L.out[po.type]||''}${po.dest?` (${po.dest})`:''}, selesai pukul ${fTime(endT)} setelah ${dur(endT-p.createdAt)}.`:' '+L.under;
+    nar+=po?` Hasil: ${L.out[po.type]||''}${po.dest?` (${po.dest})`:''}, selesai pukul ${fTime(endT)}${sameDay(endT,p.createdAt)?` setelah ${dur(endT-p.createdAt)}`:` tanggal ${dLong(endT,'id')}`}.`:' '+L.under;
+    if(p.ftf&&p.ftf.st)nar+=p.ftf.st==='fit'?` Pasien dinyatakan layak terbang${p.ftf.date?' pada '+dLong(p.ftf.date,'id'):''}.`:` Pasien belum layak terbang${p.ftf.date?' per '+dLong(p.ftf.date,'id'):''}.`;
   }
   const S=[];
   const kvf=rows=>rows.filter(([k,v])=>v!=null&&String(v).trim()!==''&&!/^[-–—]+$/.test(String(v).trim()));
   const hideNone=v=>v&&!isNone(v)?v:'';
   const noneOr=(raw,v)=>!raw?'':(isNone(raw)?L.noneVal:v);
-  const push=(h,kv)=>{const r=kvf(kv);if(r.length)S.push({h,kv:r})};
-  const pushT=(h,t)=>{if(t&&String(t).trim())S.push({h,text:t})};
-  const hotelRoom=[hideNone(i.hotel),hideNone(i.room)?(EN?'Room ':'Kamar ')+i.room:''].filter(Boolean).join(', ');
+  const push=(h,kv,lv)=>{const r=kvf(kv);if(r.length){S.push({h,kv:r,lv:lv||1});return true}return false};
+  const pushT=(h,t,lv)=>{if(t&&String(t).trim()){S.push({h,text:t,lv:lv||1});return true}return false};
+  const pushB=(h,b,lv)=>{b=(b||[]).filter(x=>x&&String(x).trim());if(b.length){S.push({h,bullets:b,lv:lv||1});return true}return false};
+  const group=(h,build)=>{const at=S.length;S.push({h,lv:1,head:true});build();if(S.length===at+1)S.pop()};
+  const hotelRoom=[hideNone(i.hotel),hideNone(i.room)?(EN?'Room ':'Kamar ')+i.room:''].filter(Boolean).join(EN?' – ':' – ');
   const dobAge=[i.dob?dLong(i.dob,lang):'',a!=null?`${a} ${L.y}`:''].filter(Boolean).join(' / ');
-  push(L.s1,[[L.name,i.name],[L.pass,hideNone(i.passport)],[L.nat,lang==='en'?String(countryEn(i.nationality)||'').replace(/^the /,''):i.nationality],[i.dob?L.dob:L.age,dobAge],[L.sex,i.sex?sexW:''],[L.lang,hideNone(i.lang)],[L.hotel,hotelRoom],[L.phone,hideNone(i.phone)],[L.ins,hideNone(i.insurance)],[L.allergy,!p.identity.allergy?'':(isNone(p.identity.allergy)?L.none:i.allergy)]]);
-  push(L.s2,[[L.date,dLong(p.createdAt,lang)],[L.arr,fTime(p.createdAt)],[L.end,endT?fTime(endT)+(sameDay(endT,p.createdAt)?'':' ('+dLong(endT,lang)+')'):''],[L.dur,endT?(lang==='en'?durEn(endT-p.createdAt):dur(endT-p.createdAt)):''],[L.doc,(EN?drEn(p.team?.doctor):p.team?.doctor)||''],[L.nurse,p.team?.nurse||'']]);
+  // rentang tanggal
+  const allT=[p.createdAt,...vs.map(x=>x.t),...adv.map(x=>x.t),...acts.map(x=>x.t),...(p.meds||[]).map(x=>x.t),p.exam?.t,po?.t].filter(Boolean);
+  const lastT=Math.max(...allT);const dateRange=sameDay(lastT,p.createdAt)?dLong(p.createdAt,lang):dLong(p.createdAt,lang)+' – '+dLong(lastT,lang);
+  const docShown=(sigFor(p.team?.doctor)||{}).name||(EN?drEn(p.team?.doctor):p.team?.doctor)||'';
+  push(L.s1,[[L.mr,p.mr||''],[L.name,i.name],[L.sex,i.sex?sexW:''],[i.dob?L.dob:L.age,dobAge],[L.nat,lang==='en'?String(countryEn(i.nationality)||'').replace(/^the /,''):i.nationality],[L.pass,hideNone(i.passport)],[L.hotel,hotelRoom],[L.phone,hideNone(i.phone)],[L.ins,hideNone(i.insurance)],[L.contact,hideNone(i.companion)],[L.lang,hideNone(i.lang)]]);
+  push(L.s2,[[L.dateR,dateRange],[L.arr,fTime(p.createdAt)+(sameDay(lastT,p.createdAt)?'':' ('+dLong(p.createdAt,lang)+')')],[L.end,endT?fTime(endT)+(sameDay(endT,p.createdAt)?'':' ('+dLong(endT,lang)+')'):''],[L.dur,endT?(lang==='en'?durEn(endT-p.createdAt):dur(endT-p.createdAt)):''],[L.doc,docShown],[L.nurse,p.team?.nurse||'']]);
+  // diagnosis (di atas)
+  const dxl=[];adv.forEach(x=>{if(x.dx||x.icd){const t=(x.dx||'')+(x.icd?` (ICD-10: ${x.icd})`:'');if(!dxl.includes(t))dxl.push(t)}});
+  if(dxl.length)S.push({h:L.sDx,text:dxl.length>1?dxl.map((d,k)=>(k+1)+'. '+d).join('\n'):dxl[0],lv:1,strong:true});
   pushT(L.s3,nar);
-  push(L.s4,[[L.cc,itemsTxt.join(', ')||c.chief||''],...(itemsTxt.length&&c.chief?[[L.ccDet,c.chief]]:[]),[L.onset,hideNone(c.onset)],[L.pain,isNum(c.pain)?c.pain+'/10':''],[L.notes,hideNone(c.notes)],[L.hist,noneOr(p.identity.history,i.history)],[L.meds,noneOr(p.identity.meds,i.meds)]]);
-  if(vs.length)S.push({h:L.s5,table:{head:[L.time,L.bp,L.hr,L.rr,L.temp,L.spo2,L.avpu,L.news],rows:vs.map(v=>[fTime(v.t),isNum(v.sbp)?v.sbp+'/'+(v.dbp||'–'):'–',v.hr||'–',v.rr||'–',v.temp||'–',(v.spo2||'–')+(v.o2?' (O₂)':''),v.avpu||'–',news(v)?String(news(v).total):'–'])},widths:[12,14,10,10,11,15,10,10]});
-  pushT(L.s6,dxs.map((d,k)=>(dxs.length>1?(k+1)+'. ':'')+d).join('\n'));
-  const rx=adv.filter(x=>x.rx);pushT(L.s7,rx.map(x=>(rx.length>1?`[${fTime(x.t)}]\n`:'')+x.rx).join('\n\n'));
-  if(acts.length)S.push({h:L.s8,table:{head:[L.time,L.proc,L.detail,L.by],rows:acts.map(x=>[fTime(x.t),(x.items||[]).join(', ')||'–',x.detail||'–',x.nurse||'–'])},widths:[11,30,43,16]});
-  const pl=adv.filter(x=>x.plan||x.follow);pushT(L.s9,pl.map(x=>{const who=[(EN?drEn(x.doctor):x.doctor)||'',fTime(x.t)].filter(Boolean).join(', ');return [x.plan||'',x.follow?(EN?'Follow-up: ':'Tindak lanjut: ')+x.follow:''].filter(Boolean).join('\n')+` (${who})`}).join('\n\n'));
-  if(po)push(L.s10,[[L.outcome,L.out[po.type]||''],[L.dest,hideNone(po.dest)],[L.fnote,hideNone(po.note)]]);else S.push({h:L.s10,kv:[[L.outcome,L.under]]});
-  if(rnote)S.push({h:L.s11,text:rnote});
-  return {L,lang,ref:refNo(p),title:L.title,sub:L.sub,sections:S,docLic:'',nurseLic:'',doctor:(EN?drEn(p.team?.doctor):p.team?.doctor)||'',nurse:p.team?.nurse||'',place:'Yogyakarta',date:dLong(endT||Date.now(),lang),fname:('Laporan_Medis_'+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10))};
+  // SUBJECTIVE
+  group(L.sSubj,()=>{push('',[[L.cc,itemsTxt.join(', ')||c.chief||''],...(itemsTxt.length&&c.chief?[[L.ccDet,c.chief]]:[]),[L.onset,hideNone(c.onset)],[L.pain,isNum(c.pain)?c.pain+'/10':''],[L.notes,hideNone(c.notes)],[L.histP,noneOr(p.identity.history,i.history)],[L.medsC,noneOr(p.identity.meds,i.meds)],[L.allergyD,!p.identity.allergy?'':(isNone(p.identity.allergy)?L.none:i.allergy)]],2)});
+  // OBJECTIVE
+  const ex=p.exam;
+  group(L.sObj,()=>{
+    if(ex)push(L.sGC,[[L.gc,lk(GC,ex.gc,EN?1:2)],[L.consc,lk(CONSC,ex.consc,EN?1:2)],[L.gcs,gcsTot(ex)!=null?`E${ex.gcsE} V${ex.gcsV} M${ex.gcsM} = ${gcsTot(ex)}`:'']],2);
+    if(vs.length)S.push({h:L.sVS,lv:2,table:{head:[L.time,L.bp,L.hr,L.rr,L.temp,L.spo2,L.avpu,L.news],rows:vs.map(v=>[(sameDay(vs[0].t,vs[vs.length-1].t)?'':new Date(v.t).toLocaleDateString(EN?'en-GB':'id-ID',{day:'numeric',month:'short'})+' ')+fTime(v.t),isNum(v.sbp)?v.sbp+'/'+(v.dbp||'–'):'–',v.hr||'–',v.rr||'–',v.temp||'–',(v.spo2||'–')+(v.o2?' (O₂)':''),v.avpu||'–',news(v)&&['rr','spo2','sbp','hr','temp'].every(k=>isNum(v[k]))?String(news(v).total):'–'])},widths:[14,14,10,9,10,15,10,10]});
+    if(ex)push(L.sPE,EXAM_SYS.map(([k,en,id,nen,nid])=>{const x=(ex.sys||{})[k];if(!x||!x.st)return ['',''];const note=T('ex.'+k,x.note);return [EN?en:id,note||(x.st==='n'?(EN?nen:nid):'')]}),2);
+  });
+  // TREATMENT
+  const meds=(p.meds||[]).slice().sort((x,y)=>x.t-y.t).map(m=>EN?{...m,note:T('m.'+m.id+'.note',m.note)}:m);
+  const mdays=[...new Set(meds.map(m=>new Date(m.t).toDateString()))];
+  group(L.sTx,()=>{
+    mdays.forEach((d,di)=>{const dm=meds.filter(m=>new Date(m.t).toDateString()===d),dl=new Date(d).toLocaleDateString(EN?'en-GB':'id-ID',{day:'numeric',month:'short'});
+      [['oral',x=>ORAL.includes(x.route)||!x.route],['inj',x=>PAREN.includes(x.route)],['oth',x=>x.route&&!ORAL.includes(x.route)&&!PAREN.includes(x.route)]].forEach(([g,f])=>{
+        const list=dm.filter(f);if(!list.length)return;
+        const pre=mdays.length>1?(di===0?L.initial+' ':L.fu+' '):'';const title=EN?pre+L[g]:L[g]+(pre?' '+pre.trim().toLowerCase():'');
+        pushB(title+(mdays.length>1?` (${dl})`:''),list.map(m=>medTxt(m,lang)+(PAREN.includes(m.route)?` — ${L.given} ${fTime(m.t)}`:'')+(m.note?` — ${m.note}`:'')),2)})});
+    const rx=adv.filter(x=>x.rx);if(rx.length)pushB(meds.length?L.sRxFree:'',rx.flatMap(x=>String(x.rx).split('\n')),2);
+    const adj=(p.medAdj||[]).map(a=>`${lk(ADJ,a.action,EN?1:2)} ${a.drug}${(EN?T('ma.'+a.id+'.note',a.note):a.note)?' '+(EN?T('ma.'+a.id+'.note',a.note):a.note):''}.`.replace(/\.\.$/,'.'));
+    pushB(L.sAdj,adj,2);
+    if(acts.length)S.push({h:L.s8,lv:2,table:{head:[L.time,L.proc,L.detail,L.by],rows:acts.map(x=>[fTime(x.t),(x.items||[]).join(', ')||'–',x.detail||'–',x.nurse||'–'])},widths:[11,30,43,16]});
+  });
+  // ADVICE & RECOMMENDATIONS
+  const rc=p.recs||{},ft=p.ftf;
+  const advB=[...(rc.items||[]).map(k=>lk(RECS,k,EN?1:2)),...String(EN?T('rec.custom',rc.custom):rc.custom||'').split('\n'),
+    ...adv.filter(x=>x.plan).flatMap(x=>String(x.plan).split('\n')),...[...new Set(adv.map(x=>x.follow).filter(Boolean))].map(f=>(EN?'Follow-up: ':'Tindak lanjut: ')+f)];
+  if(ft&&ft.st){const fn=EN?T('ftf.note',ft.note):ft.note;advB.push((ft.st==='fit'?L.ftfY:L.ftfN)+' '+(ft.date?dLong(ft.date,lang):'')+(fn?(ft.st==='fit'?' '+fn:'. '+fn):'')+'.')}
+  pushB(L.sAdv,advB.map(x=>String(x).trim()).filter(Boolean),1);
+  if(po)push(L.s10,[[L.outcome,L.out[po.type]||''],[L.dest,hideNone(po.dest)],[L.fnote,hideNone(po.note)]]);else S.push({h:L.s10,kv:[[L.outcome,L.under]],lv:1});
+  if(rnote)S.push({h:L.s11,text:rnote,lv:1});
+  return {L,lang,mr:p.mr||'',ref:refNo(p),title:L.title,sub:L.sub,sections:S,nurseLic:'',docSig:sigFor(p.team?.doctor),docName:(sigFor(p.team?.doctor)||{}).name||'',docLic:(sigFor(p.team?.doctor)||{}).lic||'',doctor:(EN?drEn(p.team?.doctor):p.team?.doctor)||'',nurse:p.team?.nurse||'',place:'Yogyakarta',date:dLong(endT||Date.now(),lang),fname:('Laporan_Medis_'+(p.mr?p.mr+'_':'')+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10))};
 }
+const noDot=t=>String(t||'').replace(/[.;,\s]+$/,'');
 const lc1=t=>t&&/^[A-Z][a-z]/.test(t)?t[0].toLowerCase()+t.slice(1):t;
 function durEn(ms){const m=Math.max(0,Math.floor(ms/60000));if(m<60)return m+' minutes';const h=Math.floor(m/60);return h+' h '+(m%60)+' min'}
 
 function resumeHTML(R){
   return `<div class="rep-h"><img src="${LOGO_SRC}" alt="Mitra 911 Tourist Medical Service" class="rep-logo">
-   <div style="text-align:right"><div style="font-family:var(--f-display);font-weight:700;font-size:18px;color:var(--navy)">${R.title}</div><div class="small muted">${R.sub}</div><div class="xs mono muted">${R.L.ref} ${R.ref}</div></div></div>
-   ${R.sections.map(s=>`<div class="rep-sec"><h3>${esc(s.h)}</h3>${
-     s.kv?`<dl class="kv">${s.kv.map(([k,v])=>`<dt>${esc(k)}</dt><dd style="white-space:pre-wrap">${esc(v)}</dd>`).join('')}</dl>`:
-     s.table?`<div class="tblwrap"><table class="vt" style="min-width:${s.table.head.length>5?560:420}px"><thead><tr>${s.table.head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${s.table.rows.map(r=>`<tr>${r.map((c,k)=>`<td class="${s.table.head.length===4&&k>0?'note':''}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:
-     `<p>${esc(s.text)}</p>`}</div>`).join('')}
-   <div class="sign"><div>${esc(R.place)}, ${esc(R.date)}<br>${R.L.signDoc}<div class="ln">${esc(R.doctor)}</div>${R.docLic?`<div class="xs muted">${R.L.lic} ${esc(R.docLic)}</div>`:''}</div><div><br>${R.L.signNurse}<div class="ln">${esc(R.nurse)}</div>${R.nurseLic?`<div class="xs muted">${R.L.lic} ${esc(R.nurseLic)}</div>`:''}</div></div>
+   <div style="text-align:right"><div style="font-family:var(--f-display);font-weight:700;font-size:18px;color:var(--navy)">${R.title}</div><div class="small muted">${R.sub}</div>${R.mr?`<div class="xs mono" style="font-weight:700">${R.L.mr}: ${esc(R.mr)}</div>`:`<div class="xs mono muted">${R.L.ref} ${R.ref}</div>`}</div></div></div>
+   ${R.sections.map(s=>{const hd=s.h?(s.lv===2?`<h4>${esc(s.h)}</h4>`:`<h3>${esc(s.h)}</h3>`):'';
+     if(s.head)return `<div class="rep-sec">${hd}</div>`;
+     const body=s.kv?`<dl class="kv">${s.kv.map(([k,v])=>`<dt>${esc(k)}</dt><dd style="white-space:pre-wrap">${esc(v)}</dd>`).join('')}</dl>`:
+      s.table?`<div class="tblwrap"><table class="vt" style="min-width:${s.table.head.length>5?560:420}px"><thead><tr>${s.table.head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${s.table.rows.map(r=>`<tr>${r.map((c,k)=>`<td class="${s.table.head.length===4&&k>0?'note':''}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:
+      s.bullets?`<ul class="rep-ul">${s.bullets.map(b=>`<li>${esc(b)}</li>`).join('')}</ul>`:
+      `<p${s.strong?' style="font-weight:700"':''}>${esc(s.text)}</p>`;
+     return `<div class="rep-sec${s.lv===2?' sub':''}">${hd}${body}</div>`}).join('')}
+   <div class="sign"><div class="sgap"></div><div>${esc(R.place)}, ${esc(R.date)}<br>${R.L.signDoc}<div class="sigbox">${R.docSig?`<img src="${R.docSig.img}" alt="Tanda tangan ${esc(R.doctor)}">`:''}</div><div class="ln">${esc(R.docName||R.doctor)}</div>${R.docLic?`<div class="xs">${R.L.lic} ${esc(R.docLic)}</div>`:''}</div></div>
    <div class="xs muted" style="text-align:center;margin-top:24px;max-width:60ch;margin-inline:auto">${R.L.gen}</div>`;
 }
 
@@ -1009,11 +1098,77 @@ async function saveBlob(name,blob){
     ${isImg?`<img src="${url}" alt="${esc(name)}" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
       <p class="small muted" style="margin:0;text-align:center">Atau <b>tekan lama gambar</b> → <i>Simpan gambar / Download image</i>.</p>`:`<div class="empty" style="padding:12px">${ic('doc')}<b>${esc(name)}</b></div>`}
     <p class="xs muted" style="margin:0;text-align:center;overflow-wrap:anywhere">${esc(name)}</p>
+    <div id="fsDrive" style="width:100%"></div>
    </div>
-   <div class="sheet-f">${canShare?`<button class="btn go" id="fsShare">${ic('install',16)}Bagikan / WhatsApp</button>`:''}<button class="btn pri" id="fsSave">${ic('install',16)}Simpan ke HP</button></div></div></div>`;
+   <div class="sheet-f">${srv()?`<button class="btn go" id="fsDriveBtn">${ic('install',16)}Simpan ke Google Drive</button>`:''}${canShare?`<button class="btn" id="fsShare">${ic('install',16)}Bagikan / WhatsApp</button>`:''}<button class="btn ${srv()?'':'pri'}" id="fsSave">${ic('install',16)}Simpan ke HP</button></div></div></div>`;
   const ov=$('#ov');ov.addEventListener('click',e=>{if(e.target===ov||e.target.closest('[data-close]'))closeSheet()});
   const sh=$('#fsShare');sh&&sh.addEventListener('click',async()=>{try{await shareFile(name,blob)}catch(e){if(e&&e.name!=='AbortError')toast('Tidak bisa membagikan: '+e.message)}});
   $('#fsSave').addEventListener('click',()=>{dlAnchor(name,blob);toast('Disimpan ke folder Download: '+name)});
+  const db=$('#fsDriveBtn');db&&db.addEventListener('click',async()=>{const box=$('#fsDrive');db.disabled=true;db.textContent='Mengunggah…';
+    try{const j=await saveToDrive(name,blob);
+      box.innerHTML=`<div class="newsbar" style="flex-direction:column;align-items:stretch;gap:8px;background:var(--green-soft)"><b style="color:var(--green)">✓ Tersimpan di Google Drive</b><span class="xs muted">Folder: Mitra 911 - Laporan &amp; Kronologi</span><div class="row"><a class="btn go sm" href="${esc(j.url)}" target="_blank" rel="noopener">Buka file</a><a class="btn sm" href="${esc(j.download)}" target="_blank" rel="noopener">Unduh</a><a class="btn sm" href="${esc(j.folderUrl)}" target="_blank" rel="noopener">Buka folder</a></div></div>`;
+      db.textContent='Tersimpan ✓';
+    }catch(e){db.disabled=false;db.textContent='Simpan ke Google Drive';
+      const m=/Unknown action|Aksi tidak dikenal/i.test(e.message)?'Server belum diperbarui. Perbarui Apps Script (lihat Pengaturan).':/DriveApp|izin|permission|authoriz/i.test(e.message)?'Server perlu izin Google Drive: jalankan fungsi setup sekali di Apps Script.':e.message==='Failed to fetch'?'Tidak ada koneksi ke server':e.message;
+      box.innerHTML=`<div class="newsbar" style="background:var(--crit-soft);color:var(--crit)">${esc(m)}</div>`}});
+}
+const EXAM_SYS=[["head", "Head & neck", "Kepala & leher", "Conjunctiva not pale, sclera not icteric. Pharynx and tonsils within normal limits. Neck: no tenderness, no lymphadenopathy, mobility free.", "Konjungtiva tidak anemis, sklera tidak ikterik. Faring & tonsil dalam batas normal. Leher: tidak nyeri tekan, tidak ada pembesaran KGB, gerak bebas."], ["thorax", "Thorax", "Toraks", "Symmetrical expansion, no retractions.", "Gerak napas simetris, tidak ada retraksi."], ["lungs", "Lungs", "Paru", "Vesicular breath sounds +/+, no rhonchi, no wheezing.", "Suara napas vesikuler +/+, ronki -/-, wheezing -/-."], ["heart", "Heart", "Jantung", "S1–S2 single and regular, no murmur, no gallop.", "S1–S2 tunggal reguler, murmur (-), gallop (-)."], ["abdomen", "Abdomen", "Abdomen", "Soft, normal bowel sounds, no tenderness, no organomegaly.", "Supel, bising usus normal, nyeri tekan (-), organomegali (-)."], ["extremities", "Extremities", "Ekstremitas", "Warm extremities, CRT < 2 seconds, no edema.", "Akral hangat, CRT < 2 detik, edema (-)."], ["skin", "Skin", "Kulit", "No rash, no lesions.", "Tidak ada ruam maupun lesi."], ["neuro", "Neurological", "Neurologis", "No focal neurological deficit.", "Tidak ada defisit neurologis fokal."]];
+const GC=[["good", "Good", "Baik"], ["fair", "Fair", "Sedang"], ["poor", "Poor", "Lemah"], ["critical", "Critical", "Buruk / kritis"]];const CONSC=[["cm", "Compos mentis (fully alert)", "Compos mentis"], ["apathetic", "Apathetic", "Apatis"], ["delirium", "Delirium", "Delirium"], ["somnolent", "Somnolent", "Somnolen"], ["stupor", "Stupor", "Sopor"], ["coma", "Coma", "Koma"]];
+const ROUTES=[["PO", "orally", "Oral (PO)"], ["SL", "sublingually", "Sublingual"], ["IV", "IV", "Injeksi IV"], ["IVD", "IV infusion", "Infus / drip IV"], ["IM", "IM", "Injeksi IM"], ["SC", "subcutaneously", "Subkutan"], ["INH", "by nebulization / inhalation", "Nebulisasi / inhalasi"], ["TOP", "topically", "Topikal"], ["PR", "rectally", "Rektal"], ["OPH", "eye drops", "Tetes mata"], ["OT", "ear drops", "Tetes telinga"]];const FREQS=[["once", "single dose", "dosis tunggal"], ["1x1", "once daily", "1x sehari"], ["2x1", "twice daily", "2x sehari"], ["3x1", "three times daily", "3x sehari"], ["4x1", "four times daily", "4x sehari"], ["q8h", "every 8 hours", "tiap 8 jam"], ["q6h", "every 6 hours", "tiap 6 jam"], ["prn", "as needed", "bila perlu"], ["cont", "continuous infusion", "drip kontinu"]];const ADJ=[["continue", "Continue", "Lanjutkan"], ["hold", "Temporarily suspend", "Hentikan sementara"], ["stop", "Discontinue", "Hentikan"], ["change", "Adjust dose of", "Ubah dosis"], ["start", "Start", "Mulai"]];
+const RECS=[["fluids", "Increase fluid intake.", "Perbanyak minum."], ["rest", "Maintain adequate bed rest.", "Istirahat yang cukup."], ["diet", "Soft, bland diet; avoid spicy and fatty food.", "Diet lunak; hindari makanan pedas dan berlemak."], ["meds", "Take medications as prescribed.", "Minum obat sesuai anjuran."], ["hygiene", "Practise hand hygiene and consume safe food and water.", "Jaga kebersihan tangan serta keamanan makanan dan minuman."], ["noalcohol", "Avoid alcohol.", "Hindari alkohol."], ["sun", "Avoid prolonged sun exposure; use sunscreen.", "Hindari paparan matahari berlebihan; gunakan tabir surya."], ["wound", "Keep the wound clean and dry.", "Jaga luka tetap bersih dan kering."], ["lab", "Await and review laboratory results.", "Menunggu dan meninjau hasil laboratorium."], ["return", "Contact Mitra 911 or seek emergency care if symptoms worsen.", "Hubungi Mitra 911 atau IGD bila keluhan memberat."], ["gp", "Follow up with a general practitioner on return home.", "Kontrol ke dokter di negara asal setelah pulang."]];const ICD=[["A09", "Infectious gastroenteritis and colitis, unspecified"], ["K52.9", "Noninfective gastroenteritis and colitis, unspecified"], ["E86", "Volume depletion (dehydration)"], ["R11", "Nausea and vomiting"], ["K29.7", "Gastritis, unspecified"], ["K30", "Dyspepsia"], ["R50.9", "Fever, unspecified"], ["A90", "Dengue fever"], ["J06.9", "Acute upper respiratory infection, unspecified"], ["J02.9", "Acute pharyngitis, unspecified"], ["J18.9", "Pneumonia, unspecified"], ["J45.9", "Asthma, unspecified"], ["T78.4", "Allergy, unspecified"], ["L50.9", "Urticaria, unspecified"], ["L55.9", "Sunburn, unspecified"], ["T63.4", "Toxic effect of venom of arthropods (insect sting)"], ["T14.1", "Open wound of unspecified body region"], ["T14.0", "Superficial injury of unspecified body region"], ["S93.4", "Sprain of ankle"], ["R51", "Headache"], ["R42", "Dizziness and giddiness"], ["R55", "Syncope and collapse"], ["I10", "Essential (primary) hypertension"], ["N39.0", "Urinary tract infection, site not specified"], ["H10.9", "Conjunctivitis, unspecified"], ["K08.8", "Toothache / other disorders of teeth"], ["F10.0", "Acute alcohol intoxication"], ["T75.3", "Motion sickness"], ["G47.0", "Insomnia"], ["F41.9", "Anxiety disorder, unspecified"]];const DRUGS=["Paracetamol", "Ibuprofen", "Ketorolac", "Tramadol", "Ondansetron", "Domperidone", "Metoclopramide", "Omeprazole", "Pantoprazole", "Lansoprazole", "Antacid", "Hyoscine butylbromide", "Loperamide", "Attapulgite", "Oral rehydration salts (ORS)", "Zinc", "Ciprofloxacin", "Metronidazole", "Cefixime", "Ceftriaxone", "Amoxicillin", "Amoxicillin–clavulanate", "Azithromycin", "Cetirizine", "Loratadine", "Diphenhydramine", "Dexamethasone", "Methylprednisolone", "Salbutamol", "Ipratropium–salbutamol", "Ringer's lactate", "Sodium chloride 0.9%", "Dextrose 5%", "Vitamin B complex", "Ranitidine", "Simethicone", "Lidocaine", "Povidone-iodine", "Silver sulfadiazine cream", "Hydrocortisone cream", "Chlorphenamine"];
+const lk=(arr,k,i)=>{const r=arr.find(x=>x[0]===k);return r?r[i]:(k||'')};
+const PAREN=['IV','IVD','IM','SC'],ORAL=['PO','SL'];
+const gcsTot=e=>e&&isNum(e.gcsE)&&isNum(e.gcsV)&&isNum(e.gcsM)?(+e.gcsE)+(+e.gcsV)+(+e.gcsM):null;
+const medTxt=(m,lang)=>{const EN=lang==='en';const r=m.route?lk(ROUTES,m.route,EN?1:2):'';const f=m.freq?lk(FREQS,m.freq,EN?1:2):'';
+  return [m.name,m.dose].filter(Boolean).join(' ')+(r?(EN?' '+r:' · '+r):'')+(f?', '+f:'')+(m.qty?` (${m.qty})`:'')};
+/* ---------- tanda tangan dokter ---------- */
+const sigKey=n=>String(n||'').toLowerCase().replace(/^\s*(dr|drg|dr\.)\.?\s+/,'').replace(/,.*$/,'').replace(/[^a-z]/g,'');
+const sigFor=name=>{const k=sigKey(name);if(!k)return null;return (DB.settings.signatures||[]).find(s=>sigKey(s.name)===k)||null};
+/* bersihkan gambar: latar putih -> transparan, potong tepi, ukuran maks 600x200 */
+function cleanSig(src){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>{
+  const sc=Math.min(1,1400/Math.max(im.width,im.height)),w=Math.round(im.width*sc),h=Math.round(im.height*sc);
+  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(im,0,0,w,h);
+  const d=x.getImageData(0,0,w,h),p=d.data;let x0=w,y0=h,x1=-1,y1=-1;
+  for(let i=0;i<p.length;i+=4){const a=p[i+3];const L=.3*p[i]+.59*p[i+1]+.11*p[i+2];
+    if(a<20||L>200){p[i+3]=0}else{const k=Math.min(255,Math.round((200-L)/200*255*1.8));p[i]=Math.round(p[i]*.85);p[i+1]=Math.round(p[i+1]*.85);p[i+2]=Math.round(p[i+2]*.85);p[i+3]=Math.min(a,k);
+      const px=(i/4)%w,py=Math.floor(i/4/w);if(px<x0)x0=px;if(px>x1)x1=px;if(py<y0)y0=py;if(py>y1)y1=py}}
+  if(x1<0)return rej(new Error('Tanda tangan tidak terbaca. Gunakan kertas putih & tinta gelap.'));
+  x.putImageData(d,0,0);const pad=6;x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(w-1,x1+pad);y1=Math.min(h-1,y1+pad);
+  const cw=x1-x0+1,ch=y1-y0+1,s2=Math.min(900/cw,240/ch,1),o=document.createElement('canvas');o.width=Math.round(cw*s2);o.height=Math.round(ch*s2);
+  o.getContext('2d').drawImage(c,x0,y0,cw,ch,0,0,o.width,o.height);res({img:o.toDataURL('image/png'),w:o.width,h:o.height})};im.onerror=()=>rej(new Error('Gambar tidak bisa dibuka'));im.src=src})}
+function sigSheet(ex){
+  let drawn=false,upl=null;
+  sheet(ex?'Ubah tanda tangan dokter':'Tambah tanda tangan dokter',`
+   <div class="f"><label for="sg_name">Nama dokter (sama persis dengan di data pasien)</label><input id="sg_name" value="${esc(ex?ex.name:(DB.settings.doctor||''))}" placeholder="mis. Dr. Irwan Taufik, MKes"></div>
+   <div class="f"><label for="sg_lic">License Number / No. SIP (opsional)</label><input id="sg_lic" value="${esc(ex?.lic||'')}" placeholder="mis. 503/5846.3846.384/XI/2021" autocomplete="off"><span class="hint">Dicetak di bawah nama dokter pada laporan.</span></div>
+   ${ex?`<div class="f"><label>Tanda tangan saat ini</label><div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center"><img src="${ex.img}" alt="Tanda tangan ${esc(ex.name)}" style="max-height:80px;max-width:100%"></div><span class="hint">Biarkan kotak di bawah kosong bila tidak ingin mengganti tanda tangan.</span></div>`:''}
+   <div class="f"><label>Gambar tanda tangan dengan jari / mouse</label>
+    <canvas id="sg_pad" width="900" height="300" style="width:100%;aspect-ratio:3/1;max-width:100%;background:#fff;border:1.5px dashed var(--line);border-radius:12px;touch-action:none"></canvas>
+    <div class="row" style="justify-content:space-between"><span class="hint">Atau unggah foto tanda tangan di kertas putih.</span><button type="button" class="btn sm" id="sg_clear">Hapus coretan</button></div></div>
+   <div class="f"><label for="sg_file">Unggah foto / scan tanda tangan (opsional)</label><input id="sg_file" type="file" accept="image/*"></div>
+   <div id="sg_prev"></div>
+   <label class="row" style="gap:8px;align-items:flex-start;font-size:13.5px"><input type="checkbox" id="sg_ok" style="margin-top:3px"><span>Tanda tangan ini digunakan atas persetujuan dokter yang bersangkutan, dan akan tercetak otomatis pada Laporan Medis pasien yang ditangani dokter tersebut.</span></label>`,
+   ()=>{(async()=>{
+     const name=val('sg_name');if(!name){toast('Isi nama dokter');return}
+     if(!$('#sg_ok').checked){toast('Centang persetujuan dokter terlebih dahulu');return}
+     let src=upl;if(!src&&drawn)src=$('#sg_pad').toDataURL('image/png');
+     if(!src&&!ex){toast('Buat atau unggah tanda tangan dulu');return}
+     try{const r=src?await cleanSig(src):{img:ex.img,w:ex.w,h:ex.h};const lic=val('sg_lic');DB.settings.signatures=(DB.settings.signatures||[]).filter(x=>x!==ex&&sigKey(x.name)!==sigKey(name));DB.settings.signatures.push({name,lic,...r,t:Date.now()});persist();closeSheet();toast('Tanda tangan '+name+' tersimpan');render()}catch(e){toast(e.message)}
+   })();return false},'Simpan tanda tangan');
+  const cv=$('#sg_pad'),x=cv.getContext('2d');x.lineWidth=6;x.lineCap='round';x.lineJoin='round';x.strokeStyle='#0D1A33';let on=false;
+  const pt=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height]};
+  cv.addEventListener('pointerdown',e=>{on=true;cv.setPointerCapture(e.pointerId);const[a,b]=pt(e);x.beginPath();x.moveTo(a,b);x.lineTo(a+.1,b+.1);x.stroke();drawn=true;upl=null;$('#sg_prev').innerHTML=''});
+  cv.addEventListener('pointermove',e=>{if(!on)return;const[a,b]=pt(e);x.lineTo(a,b);x.stroke()});
+  ['pointerup','pointercancel','pointerleave'].forEach(t=>cv.addEventListener(t,()=>on=false));
+  $('#sg_clear').addEventListener('click',()=>{x.clearRect(0,0,cv.width,cv.height);drawn=false});
+  $('#sg_file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=async()=>{upl=fr.result;try{const r=await cleanSig(upl);$('#sg_prev').innerHTML=`<div class="f"><label>Pratinjau (latar putih otomatis dihapus)</label><div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center"><img src="${r.img}" alt="Pratinjau tanda tangan" style="max-height:90px"></div></div>`}catch(err){toast(err.message);upl=null}};fr.readAsDataURL(f)});
+}
+const blobB64=blob=>new Promise((r,j)=>{const fr=new FileReader();fr.onload=()=>r(String(fr.result).split(',')[1]);fr.onerror=j;fr.readAsDataURL(blob)});
+async function saveToDrive(name,blob){
+  if(!srv())throw new Error('Server belum tersambung (isi kunci tim di Pengaturan)');
+  if(!navigator.onLine)throw new Error('Tidak ada internet');
+  const j=await api({action:'saveFile',name,mime:blob.type||'application/octet-stream',data:await blobB64(blob),device:DB.settings.deviceName||''});
+  return j;
 }
 const b64bytes=d=>{const s=atob(d.split(',')[1]);const u=new Uint8Array(s.length);for(let k=0;k<s.length;k++)u[k]=s.charCodeAt(k);return u};
 
@@ -1039,23 +1194,26 @@ function exportDocx(R){
   const x=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const NAVY='17398C',SOFT='EEF2FA',LINE='C9D3E6';
   const run=(t,o={})=>String(t??'').split('\n').map((ln,k)=>`<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${o.b?'<w:b/>':''}${o.i?'<w:i/>':''}${o.color?`<w:color w:val="${o.color}"/>`:''}<w:sz w:val="${o.sz||20}"/><w:szCs w:val="${o.sz||20}"/></w:rPr>${k?'<w:br/>':''}<w:t xml:space="preserve">${x(ln)}</w:t></w:r>`).join('');
-  const para=(t,o={})=>`<w:p><w:pPr><w:spacing w:before="${o.before||0}" w:after="${o.after??60}"/>${o.align?`<w:jc w:val="${o.align}"/>`:''}${o.border?`<w:pBdr><w:bottom w:val="single" w:sz="${o.border}" w:space="2" w:color="${o.bc||NAVY}"/></w:pBdr>`:''}${o.keep?'<w:keepNext/>':''}</w:pPr>${run(t,o)}</w:p>`;
+  const para=(t,o={})=>`<w:p><w:pPr><w:spacing w:before="${o.before||0}" w:after="${o.after??60}"/>${o.ind?'<w:ind w:left="360" w:hanging="220"/>':''}${o.align?`<w:jc w:val="${o.align}"/>`:''}${o.border?`<w:pBdr><w:bottom w:val="single" w:sz="${o.border}" w:space="2" w:color="${o.bc||NAVY}"/></w:pBdr>`:''}${o.keep?'<w:keepNext/>':''}</w:pPr>${run(t,o)}</w:p>`;
   const cell=(c,w,o={})=>`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${o.fill?`<w:shd w:val="clear" w:color="auto" w:fill="${o.fill}"/>`:''}<w:tcMar><w:top w:w="50" w:type="dxa"/><w:bottom w:w="50" w:type="dxa"/></w:tcMar></w:tcPr>${c}</w:tc>`;
   const tbl=(rows,ws,o={})=>`<w:tbl><w:tblPr><w:tblW w:w="${ws.reduce((a,b)=>a+b,0)}" w:type="dxa"/><w:tblBorders>${o.noBorder?['top','left','bottom','right','insideH','insideV'].map(s=>`<w:${s} w:val="nil"/>`).join(''):['top','left','bottom','right','insideH','insideV'].map(s=>`<w:${s} w:val="single" w:sz="4" w:color="${LINE}"/>`).join('')}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="90" w:type="dxa"/><w:right w:w="90" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${ws.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${rows.join('')}</w:tbl>`;
   const TW=9900;
+  const sigRun=g=>{let cy=Math.round(914400*0.62);if(cy*g.w/g.h>914400*2.6)cy=Math.round(914400*2.6*g.h/g.w);const sx=Math.round(cy*g.w/g.h);return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${sx}" cy="${cy}"/><wp:docPr id="2" name="Signature"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="2" name="sig.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdSig"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${sx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`};
   const cx=2286000,cy=Math.round(cx*170/635);
   const img=`<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Logo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="logo.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdLogo"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
-  let body=tbl([`<w:tr>${cell(`<w:p>${img}</w:p>`,5200)}${cell(para(R.title,{b:true,sz:30,color:NAVY,align:'right',after:0})+para(R.sub,{sz:20,color:'5A6987',align:'right',after:0})+para(R.L.ref+' '+R.ref,{sz:17,color:'5A6987',align:'right',after:0}),4700)}</w:tr>`],[5200,4700],{noBorder:true});
+  let body=tbl([`<w:tr>${cell(`<w:p>${img}</w:p>`,5200)}${cell(para(R.title,{b:true,sz:30,color:NAVY,align:'right',after:0})+para(R.sub,{sz:20,color:'5A6987',align:'right',after:0})+(R.mr?para(R.L.mr+': '+R.mr,{sz:17,b:true,align:'right',after:0}):para(R.L.ref+' '+R.ref,{sz:17,color:'5A6987',align:'right',after:0})),4700)}</w:tr>`],[5200,4700],{noBorder:true});
   body+=para('',{border:18,after:120});
   for(const s of R.sections){
-    body+=para(s.h.toUpperCase(),{b:true,sz:20,color:NAVY,border:6,bc:LINE,before:180,after:80,keep:true});
+    if(s.h)body+=s.lv===2?para(s.h,{b:true,sz:19,color:'0D1A33',before:120,after:60,keep:true}):para(s.h.toUpperCase(),{b:true,sz:20,color:NAVY,border:6,bc:LINE,before:180,after:80,keep:true});
+    if(s.head)continue;
     if(s.kv)body+=tbl(s.kv.map(([k,v])=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${cell(para(k,{sz:19,color:'5A6987',after:0}),2800,{fill:SOFT})}${cell(para(v,{sz:20,b:false,after:0}),TW-2800)}</w:tr>`),[2800,TW-2800]);
     else if(s.table){const tot=s.widths.reduce((a,b)=>a+b,0),ws=s.widths.map(w=>Math.round(w/tot*TW));
       body+=tbl([`<w:tr><w:trPr><w:tblHeader/></w:trPr>${s.table.head.map((h,k)=>cell(para(h,{b:true,sz:18,color:'FFFFFF',after:0}),ws[k],{fill:NAVY})).join('')}</w:tr>`,...s.table.rows.map((r,ri)=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${r.map((c,k)=>cell(para(c,{sz:18,after:0}),ws[k],ri%2?{fill:'F7F9FD'}:{})).join('')}</w:tr>`)],ws)}
-    else body+=para(s.text,{sz:20,after:60});
+    else if(s.bullets)s.bullets.forEach(b=>{body+=para('•  '+b,{sz:20,after:30,ind:true})});
+    else body+=para(s.text,{sz:s.strong?22:20,b:!!s.strong,after:60});
   }
   body+=para('',{after:360});
-  body+=tbl([`<w:tr>${cell(para(R.place+', '+R.date,{sz:19,align:'center',after:0})+para(R.L.signDoc,{sz:19,align:'center',after:900})+para(R.doctor,{b:true,sz:20,align:'center',after:0})+(R.docLic?para(R.L.lic+' '+R.docLic,{sz:16,color:'5A6987',align:'center',after:0}):''),TW/2)}${cell(para(' ',{sz:19,after:0})+para(R.L.signNurse,{sz:19,align:'center',after:900})+para(R.nurse,{b:true,sz:20,align:'center',after:0})+(R.nurseLic?para(R.L.lic+' '+R.nurseLic,{sz:16,color:'5A6987',align:'center',after:0}):''),TW/2)}</w:tr>`],[TW/2,TW/2],{noBorder:true});
+  body+=tbl([`<w:tr>${cell(para(' ',{sz:19,after:0}),TW/2)}${cell(para(R.place+', '+R.date,{sz:19,align:'center',after:0})+(R.docSig?para(R.L.signDoc,{sz:19,align:'center',after:40})+`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${sigRun(R.docSig)}</w:p>`:para(R.L.signDoc,{sz:19,align:'center',after:900}))+para(R.docName||R.doctor,{b:true,sz:20,align:'center',after:0})+(R.docLic?para(R.L.lic+' '+R.docLic,{sz:18,align:'center',after:0}):''),TW/2)}</w:tr>`],[TW/2,TW/2],{noBorder:true});
   body+=para(R.L.gen,{sz:15,color:'8A97B0',align:'center',before:300});
   const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="1000" w:bottom="900" w:left="1000" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr></w:body></w:document>`;
   const files=[
@@ -1063,8 +1221,9 @@ function exportDocx(R){
     {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>'},
     {name:'docProps/core.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${x(R.title+' '+R.ref)}</dc:title><dc:creator>Mitra 911 OnCall</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0,19)}Z</dcterms:created></cp:coreProperties>`},
     {name:'word/document.xml',data:doc},
-    {name:'word/_rels/document.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.png"/></Relationships>'},
-    {name:'word/media/logo.png',data:b64bytes(LOGO_WHITE)}
+    {name:'word/_rels/document.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.png"/>'+(R.docSig?'<Relationship Id="rIdSig" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/sig.png"/>':'')+'</Relationships>'},
+    {name:'word/media/logo.png',data:b64bytes(LOGO_WHITE)},
+    ...(R.docSig?[{name:'word/media/sig.png',data:b64bytes(R.docSig.img)}]:[])
   ];
   return saveBlob(R.fname+'.docx',zip(files));
 }
@@ -1084,28 +1243,32 @@ async function exportPdf(R){
   const lw=58,lh=lw*170/635;
   doc.addImage(LOGO_WHITE,'PNG',M,11,lw,lh);
   doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(...NAVY);doc.text(T(R.title),W-M,17,{align:'right'});
-  doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(...MUT);doc.text(T(R.sub),W-M,22,{align:'right'});doc.text(T(R.L.ref+' '+R.ref),W-M,26.5,{align:'right'});
+  doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(...MUT);doc.text(T(R.sub),W-M,22,{align:'right'});if(R.mr){doc.setFont('helvetica','bold');doc.setTextColor(13,26,51);doc.text(T(R.L.mr+': '+R.mr),W-M,26.5,{align:'right'});doc.setFont('helvetica','normal')}else doc.text(T(R.L.ref+' '+R.ref),W-M,26.5,{align:'right'});
   doc.setDrawColor(...NAVY);doc.setLineWidth(.9);doc.line(M,30,W-M,30);
   let y=36;
-  const head=h=>{if(y>262){doc.addPage();y=18}doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(...NAVY);doc.text(T(h.toUpperCase()),M,y);doc.setDrawColor(201,211,230);doc.setLineWidth(.3);doc.line(M,y+1.6,W-M,y+1.6);y+=4};
+  const head=h=>{y+=2;if(y>262){doc.addPage();y=18}doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(...NAVY);doc.text(T(h.toUpperCase()),M,y);doc.setDrawColor(201,211,230);doc.setLineWidth(.3);doc.line(M,y+1.6,W-M,y+1.6);y+=4};
   const base={margin:{left:M,right:M,top:16,bottom:16},styles:{font:'helvetica',fontSize:9,cellPadding:1.4,textColor:[13,26,51],lineColor:[201,211,230],lineWidth:.2,overflow:'linebreak'}};
+  const sub=h=>{y+=1;if(y>266){doc.addPage();y=18}doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(13,26,51);doc.text(T(h),M,y);y+=3};
   for(const s of R.sections){
-    head(s.h);
+    if(s.h)(s.lv===2?sub:head)(s.h);
+    if(s.head){y+=1;continue}
     if(s.kv)doc.autoTable({...base,startY:y,theme:'grid',body:s.kv.map(([k,v])=>[T(k),T(v)]),columnStyles:{0:{cellWidth:48,fillColor:[238,242,250],textColor:MUT}}});
     else if(s.table){const tot=s.widths.reduce((a,b)=>a+b,0),cw={};s.widths.forEach((w,k)=>cw[k]={cellWidth:w/tot*(W-2*M)});
       doc.autoTable({...base,startY:y,theme:'grid',head:[s.table.head.map(T)],body:s.table.rows.map(r=>r.map(T)),headStyles:{fillColor:NAVY,textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[247,249,253]},columnStyles:cw})}
-    else doc.autoTable({...base,startY:y,theme:'plain',body:[[T(s.text)]],styles:{...base.styles,lineWidth:0,cellPadding:{top:.5,bottom:1,left:0,right:0},fontSize:9.5}});
-    y=doc.lastAutoTable.finalY+5;
+    else if(s.bullets)doc.autoTable({...base,startY:y,theme:'plain',body:s.bullets.map(b=>['•',T(b)]),styles:{...base.styles,lineWidth:0,cellPadding:{top:.4,bottom:.6,left:0,right:0},fontSize:9.5},columnStyles:{0:{cellWidth:5}}});
+    else doc.autoTable({...base,startY:y,theme:'plain',body:[[T(s.text)]],styles:{...base.styles,lineWidth:0,cellPadding:{top:.5,bottom:1,left:0,right:0},fontSize:s.strong?10.5:9.5,fontStyle:s.strong?'bold':'normal'}});
+    y=doc.lastAutoTable.finalY+(s.lv===2?3.5:5);
   }
   if(y>250){doc.addPage();y=24}
   y+=2;doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(13,26,51);
   const c1=M+(W-2*M)/4,c2=M+3*(W-2*M)/4;
-  doc.text(T(R.place+', '+R.date),c1,y,{align:'center'});doc.text(T(R.L.signDoc),c1,y+5,{align:'center'});doc.text(T(R.L.signNurse),c2,y+5,{align:'center'});
-  doc.setDrawColor(13,26,51);doc.setLineWidth(.3);doc.line(c1-30,y+24,c1+30,y+24);doc.line(c2-30,y+24,c2+30,y+24);
-  doc.setFont('helvetica','bold');doc.text(T(R.doctor),c1,y+29,{align:'center'});doc.text(T(R.nurse),c2,y+29,{align:'center'});
-  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...MUT);if(R.docLic)doc.text(T(R.L.lic+' '+R.docLic),c1,y+38,{align:'center'});if(R.nurseLic)doc.text(T(R.L.lic+' '+R.nurseLic),c2,y+38,{align:'center'});
+  doc.text(T(R.place+', '+R.date),c2,y,{align:'center'});doc.text(T(R.L.signDoc),c2,y+5,{align:'center'});
+  if(R.docSig){let sh=17,sw=sh*R.docSig.w/R.docSig.h;if(sw>72){sw=72;sh=sw*R.docSig.h/R.docSig.w}doc.addImage(R.docSig.img,'PNG',c2-sw/2,y+24-sh,sw,sh)}
+  doc.setDrawColor(13,26,51);doc.setLineWidth(.3);doc.line(c2-34,y+25,c2+34,y+25);
+  doc.setFont('helvetica','bold');doc.text(T(R.docName||R.doctor),c2,y+30,{align:'center'});
+  if(R.docLic){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(T(R.L.lic+' '+R.docLic),c2,y+35,{align:'center'})}
   const n=doc.getNumberOfPages();
-  for(let k=1;k<=n;k++){doc.setPage(k);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(138,151,176);doc.text(T(R.L.gen),M,286.5,{maxWidth:W-2*M});doc.text(T(R.ref),M,290.5);doc.text(T(`${R.L.page} ${k} ${R.L.of} ${n}`),W-M,290.5,{align:'right'})}
+  for(let k=1;k<=n;k++){doc.setPage(k);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(138,151,176);doc.text(T(R.L.gen),M,286.5,{maxWidth:W-2*M});doc.text(T(R.mr?R.L.mr+': '+R.mr:R.L.ref+' '+R.ref),M,290.5);doc.text(T(`${R.L.page} ${k} ${R.L.of} ${n}`),W-M,290.5,{align:'right'})}
   return saveBlob(R.fname+'.pdf',doc.output('blob'));
 }
 
@@ -1129,7 +1292,7 @@ async function exportTimelinePng(p){
   try{await document.fonts.ready}catch(e){}
   const logo=await new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=LOGO_WHITE});
   const W=1080,PAD=56,F="Figtree, 'Segoe UI', Roboto, Arial, sans-serif",FM="'JetBrains Mono', Consolas, monospace";
-  const C={navy:'#17398C',ink:'#0D1A33',mut:'#5A6987',line:'#DBE2EF',soft:'#F4F7FC',green:'#15994A',warn:'#B77300',crit:'#CF332C',v:'#15994A',d:'#17398C',a:'#B77300',s:'#5A6987'};
+  const C={navy:'#17398C',ink:'#0D1A33',mut:'#5A6987',line:'#DBE2EF',soft:'#F4F7FC',green:'#15994A',warn:'#B77300',crit:'#CF332C',v:'#15994A',d:'#17398C',a:'#B77300',s:'#5A6987',m:'#7A3FB0',e:'#0E7C7C'};
   const ev=events(p).sort((a,b)=>a.t-b.t);
   const cv=document.createElement('canvas'),x=cv.getContext('2d');
   const wrap=(t,font,max)=>{x.font=font;const out=[];String(t||'').split('\n').forEach(par=>{let ln='';par.split(/\s+/).forEach(w=>{const tt=ln?ln+' '+w:w;if(x.measureText(tt).width>max&&ln){out.push(ln);ln=w}else ln=tt});out.push(ln)});return out};
@@ -1143,7 +1306,7 @@ async function exportTimelinePng(p){
   if(logo){const lw=300,lh=lw*logo.height/logo.width;x.drawImage(logo,PAD,48,lw,lh)}
   x.textAlign='right';x.fillStyle=C.navy;x.font=`800 34px ${F}`;x.fillText('KRONOLOGI PENANGANAN',W-PAD,82);
   x.fillStyle=C.mut;x.font=`500 22px ${F}`;x.fillText('Patient Care Timeline',W-PAD,114);
-  x.font=`500 20px ${FM}`;x.fillText(refNo(p),W-PAD,144);
+  x.font=`${p.mr?700:500} 20px ${FM}`;x.fillText(p.mr?'No. RM '+p.mr:refNo(p),W-PAD,144);
   x.fillStyle=C.navy;x.fillRect(PAD,172,W-2*PAD,4);
   // info pasien
   const i=p.identity;let y=headH;
@@ -1165,7 +1328,7 @@ async function exportTimelinePng(p){
     x.fillStyle=C.soft;x.beginPath();x.roundRect?x.roundRect(TX,y,W-TX-PAD,it.h,14):x.rect(TX,y,W-TX-PAD,it.h);x.fill();
     x.fillStyle=col;x.fillRect(TX,y+14,4,it.h-28);
     x.textAlign='left';x.fillStyle=C.ink;x.font=`700 24px ${F}`;x.fillText(e.ttl,TX+24,y+40);
-    if(e.news){const n=e.news,lab='NEWS2 '+n.total,bg=n.level==='high'?C.crit:(n.level==='low'?C.green:C.warn);x.font=`700 18px ${FM}`;const w=x.measureText(lab).width+20;x.fillStyle=bg;x.beginPath();x.roundRect?x.roundRect(W-PAD-20-w,y+18,w,30,8):x.rect(W-PAD-20-w,y+18,w,30);x.fill();x.fillStyle='#fff';x.fillText(lab,W-PAD-10-w,y+39)}
+    if(e.news&&e.full){const n=e.news,lab='NEWS2 '+n.total,bg=n.level==='high'?C.crit:(n.level==='low'?C.green:C.warn);x.font=`700 18px ${FM}`;const w=x.measureText(lab).width+20;x.fillStyle=bg;x.beginPath();x.roundRect?x.roundRect(W-PAD-20-w,y+18,w,30,8):x.rect(W-PAD-20-w,y+18,w,30);x.fill();x.fillStyle='#fff';x.fillText(lab,W-PAD-10-w,y+39)}
     x.fillStyle=C.ink;x.font=`400 24px ${F}`;it.body.forEach((ln,k)=>x.fillText(ln,TX+24,y+76+k*32));
     y+=it.h+18;});
   // footer
@@ -1173,7 +1336,7 @@ async function exportTimelinePng(p){
   x.textAlign='left';x.fillStyle=C.mut;x.font=`500 18px ${F}`;x.fillText('Mitra 911 · On-call & Home Care Services',PAD,H-footH+56);
   x.textAlign='right';x.fillText('Dibuat '+fDT(Date.now())+(p.team?.doctor?' · '+p.team.doctor:''),W-PAD,H-footH+56);
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
-  await saveBlob('Kronologi_'+(i.name||'pasien').replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10)+'.png',blob);
+  await saveBlob('Kronologi_'+(p.mr?p.mr+'_':'')+(i.name||'pasien').replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10)+'.png',blob);
   
 }
 
@@ -1239,16 +1402,74 @@ function vitalSheet(pid,existing){
   upd();
 }
 const SH={o2:false,avpu:'A',items:new Set(),follow:''};
+function examSheet(p){const e=p.exam||{sys:{}};SH.ex=JSON.parse(JSON.stringify(e.sys||{}));
+  const opt=(arr,v,i)=>`<option value="">–</option>`+arr.map(a=>`<option value="${a[0]}" ${a[0]===v?'selected':''}>${esc(a[i])}</option>`).join('');
+  const num=(id,n,v,lab)=>`<div class="f"><label for="${id}">${lab}</label><select id="${id}"><option value="">–</option>${Array.from({length:n},(_,k)=>k+1).map(k=>`<option ${String(v)===String(k)?'selected':''}>${k}</option>`).join('')}</select></div>`;
+  const row=([k,en,id,nen,nid])=>{const x=SH.ex[k]||{};return `<div class="f" data-sys="${k}" style="border-top:1px solid var(--line);padding-top:10px"><div class="row between"><label>${esc(id)}</label><div class="seg" style="padding:2px">${[['n','Normal'],['a','Abnormal'],['','Tidak diperiksa']].map(([st,l])=>`<button type="button" class="${(x.st||'')===st?'on':''}" data-sysst="${k}|${st}">${l}</button>`).join('')}</div></div>
+    <textarea id="ex_${k}" rows="2" style="min-height:0" placeholder="${esc(x.st==='a'?'Tulis temuan abnormal (sebaiknya English)':'Normal: '+nid)}" ${x.st?'':'hidden'}>${esc(x.note||'')}</textarea></div>`};
+  sheet('Pemeriksaan fisik',`
+   <div class="fgrid"><div class="f"><label for="ex_gc">Keadaan umum</label><select id="ex_gc">${opt(GC,e.gc,2)}</select></div><div class="f"><label for="ex_consc">Kesadaran</label><select id="ex_consc">${opt(CONSC,e.consc||'cm',2)}</select></div></div>
+   <div class="fgrid" style="grid-template-columns:repeat(3,minmax(0,1fr))">${num('ex_e',4,e.gcsE??4,'GCS E')}${num('ex_v',5,e.gcsV??5,'GCS V')}${num('ex_m',6,e.gcsM??6,'GCS M')}</div>
+   <div class="newsbar"><span>Isi cepat: tandai semua sistem normal, lalu ubah yang abnormal.</span><button type="button" class="btn sm go" id="ex_allnorm">Semua normal</button></div>
+   ${EXAM_SYS.map(row).join('')}
+   <div class="f"><label for="ex_t">Waktu pemeriksaan</label><input id="ex_t" type="datetime-local" value="${toLocalInput(e.t||Date.now())}"></div>`,()=>{
+     const sys={};EXAM_SYS.forEach(([k])=>{const x=SH.ex[k]||{};if(x.st)sys[k]={st:x.st,note:val('ex_'+k)}});
+     const lp=getP(p.id)||p;lp.exam={gc:val('ex_gc'),consc:val('ex_consc'),gcsE:val('ex_e'),gcsV:val('ex_v'),gcsM:val('ex_m'),sys,t:fromLocalInput(val('ex_t'))};
+     save();toast('Pemeriksaan fisik tersimpan');render()},'Simpan pemeriksaan');
+  const setSt=(k,st)=>{SH.ex[k]=Object.assign(SH.ex[k]||{},{st});const box=$(`[data-sys="${k}"]`);$$('[data-sysst^="'+k+'|"]',box).forEach(b=>b.classList.toggle('on',b.dataset.sysst===k+'|'+st));const ta=$('#ex_'+k);ta.hidden=!st;const nid=EXAM_SYS.find(r=>r[0]===k)[4];ta.placeholder=st==='a'?'Tulis temuan abnormal (sebaiknya English)':'Normal: '+nid};
+  $('#sf').addEventListener('click',ev=>{const b=ev.target.closest('[data-sysst]');if(b){const [k,st]=b.dataset.sysst.split('|');setSt(k,st)}
+    if(ev.target.closest('#ex_allnorm'))EXAM_SYS.forEach(([k])=>{if(!(SH.ex[k]||{}).st)setSt(k,'n')})});
+}
+function medSheet(p,ex){const m=ex||{};
+  const opt=(arr,v,i)=>`<option value="">–</option>`+arr.map(a=>`<option value="${a[0]}" ${a[0]===v?'selected':''}>${esc(a[i])}</option>`).join('');
+  sheet(ex?'Edit obat':'Tambah obat',`
+   <div class="f"><label for="m_name">Nama obat (generik)</label><input id="m_name" list="druglist" value="${esc(m.name||'')}" placeholder="mis. Ondansetron" autocomplete="off"><datalist id="druglist">${DRUGS.map(d=>`<option value="${esc(d)}">`).join('')}</datalist></div>
+   <div class="fgrid"><div class="f"><label for="m_dose">Dosis</label><input id="m_dose" value="${esc(m.dose||'')}" placeholder="mis. 4 mg / 500 ml"></div>
+    <div class="f"><label for="m_route">Rute</label><select id="m_route">${opt(ROUTES,m.route||'PO',2)}</select></div>
+    <div class="f"><label for="m_freq">Frekuensi</label><select id="m_freq">${opt(FREQS,m.freq,2)}</select></div>
+    <div class="f"><label for="m_qty">Jumlah / durasi / kecepatan</label><input id="m_qty" value="${esc(m.qty||'')}" placeholder="mis. 10 tablets, 3 days / 30 dpm"></div></div>
+   <div class="f"><label for="m_note">Keterangan (opsional)</label><input id="m_note" value="${esc(m.note||'')}" placeholder="mis. after meals"></div>
+   <div class="f"><label for="m_t">Waktu diberikan / diresepkan</label><input id="m_t" type="datetime-local" value="${toLocalInput(m.t||Date.now())}"></div>`,()=>{
+     if(!val('m_name')){toast('Isi nama obat');return false}
+     const rec={id:m.id||uid(),t:fromLocalInput(val('m_t')),name:val('m_name'),dose:val('m_dose'),route:val('m_route'),freq:val('m_freq'),qty:val('m_qty'),note:val('m_note')};
+     const lp=getP(p.id)||p;lp.meds=lp.meds||[];const le=ex&&lp.meds.find(x=>x.id===ex.id);le?Object.assign(le,rec):lp.meds.push(rec);
+     save();toast('Obat tersimpan');render()},'Simpan obat');
+}
+function adjSheet(p,ex){const a=ex||{};const home=String(p.identity.meds||'').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean);
+  sheet(ex?'Edit penyesuaian obat rutin':'Penyesuaian obat rutin',`
+   <div class="f"><label for="j_drug">Nama obat rutin</label><input id="j_drug" list="homelist" value="${esc(a.drug||'')}" placeholder="mis. Amlodipine 5 mg" autocomplete="off"><datalist id="homelist">${home.map(d=>`<option value="${esc(d)}">`).join('')}</datalist></div>
+   <div class="f"><label for="j_act">Tindakan</label><select id="j_act">${ADJ.map(x=>`<option value="${x[0]}" ${x[0]===(a.action||'hold')?'selected':''}>${esc(x[2])}</option>`).join('')}</select></div>
+   <div class="f"><label for="j_note">Keterangan (sebaiknya English)</label><input id="j_note" value="${esc(a.note||'')}" placeholder="mis. until systolic BP > 150 mmHg"></div>`,()=>{
+     if(!val('j_drug')){toast('Isi nama obat');return false}
+     const rec={id:a.id||uid(),drug:val('j_drug'),action:val('j_act'),note:val('j_note')};
+     const lp=getP(p.id)||p;lp.medAdj=lp.medAdj||[];const le=ex&&lp.medAdj.find(x=>x.id===ex.id);le?Object.assign(le,rec):lp.medAdj.push(rec);
+     save();toast('Tersimpan');render()},'Simpan');
+}
+function recSheet(p){const r=p.recs||{},f=p.ftf||{};SH.recs=new Set(r.items||[]);SH.ftf=f.st||'';
+  sheet('Rekomendasi & Fit to Fly',`
+   <div class="f"><label>Rekomendasi (pilih)</label><div class="chips">${RECS.map(([k,en,id])=>`<button type="button" class="chip ${SH.recs.has(k)?'on':''}" data-rec="${k}">${esc(id)}</button>`).join('')}</div></div>
+   <div class="f"><label for="r_custom">Rekomendasi lain (satu per baris, sebaiknya English)</label><textarea id="r_custom" placeholder="mis. Repeat complete blood count in 2 days">${esc(r.custom||'')}</textarea></div>
+   <div class="f"><label>Fit to Fly</label><div class="seg">${[['fit','Fit to Fly'],['unfit','Belum fit'],['','Tidak dinilai']].map(([k,l])=>`<button type="button" class="${SH.ftf===k?'on':''}" data-ftf="${k}">${l}</button>`).join('')}</div></div>
+   <div class="fgrid"><div class="f"><label for="r_fdate">Tanggal</label><input id="r_fdate" type="date" value="${esc(f.date||new Date().toISOString().slice(0,10))}"></div>
+    <div class="f"><label for="r_fnote">Keterangan (opsional, English)</label><input id="r_fnote" value="${esc(f.note||'')}" placeholder="following clinical stability and adequate rehydration"></div></div>`,()=>{
+     const lp=getP(p.id)||p;lp.recs={items:[...SH.recs],custom:val('r_custom')};lp.ftf=SH.ftf?{st:SH.ftf,date:val('r_fdate'),note:val('r_fnote')}:null;
+     save();toast('Rekomendasi tersimpan');render()},'Simpan');
+  $('#sf').addEventListener('click',e=>{const c=e.target.closest('[data-rec]');if(c){const k=c.dataset.rec;SH.recs.has(k)?SH.recs.delete(k):SH.recs.add(k);c.classList.toggle('on')}
+    const t=e.target.closest('[data-ftf]');if(t){SH.ftf=t.dataset.ftf;$$('[data-ftf]').forEach(b=>b.classList.toggle('on',b===t))}});
+}
 function advSheet(p,ex){const x=ex||{};SH.follow=x.follow||'';
   sheet(ex?'Edit advice dokter':'Advice dokter',`
    <div class="fgrid"><div class="f"><label for="a_doc">Dokter</label><input id="a_doc" value="${esc(x.doctor??p.team?.doctor??DB.settings.doctor)}"></div><div class="f"><label for="a_t">Waktu</label><input id="a_t" type="datetime-local" value="${toLocalInput(x.t||Date.now())}"></div></div>
-   <div class="f"><label for="a_dx">Diagnosis / kesan klinis</label><input id="a_dx" value="${esc(x.dx||'')}" placeholder="mis. Gastroenteritis akut"></div>
-   <div class="f"><label for="a_rx">Terapi / obat / injeksi</label><textarea id="a_rx" placeholder="Satu obat per baris, mis.&#10;Ondansetron 4 mg IV&#10;Parasetamol 500 mg PO 3x1">${esc(x.rx||'')}</textarea></div>
+   <div class="f"><label for="a_dx">Diagnosis / kesan klinis (sebaiknya English)</label><input id="a_dx" value="${esc(x.dx||'')}" placeholder="mis. Acute gastroenteritis with dehydration"></div>
+   <div class="f"><label for="a_icd">Kode ICD-10 (opsional)</label><input id="a_icd" list="icdlist" value="${esc(x.icd||'')}" placeholder="Ketik kode / nama penyakit, mis. A09" autocomplete="off"><datalist id="icdlist">${ICD.map(([c,l])=>`<option value="${c} — ${esc(l)}">`).join('')}</datalist><span class="hint">Memilih dari daftar akan mengisi diagnosis bila masih kosong.</span></div>
+   <div class="f"><label for="a_rx">Terapi tambahan (teks bebas)</label><textarea id="a_rx" placeholder="Obat sebaiknya dicatat di tab Obat agar terstruktur. Kolom ini untuk terapi lain, mis. kompres, posisi semi-Fowler">${esc(x.rx||'')}</textarea></div>
    <div class="f"><label for="a_plan">Instruksi / advice (selain obat)</label><textarea id="a_plan" placeholder="mis. Observasi TTV tiap 15 menit; bila muntah berlanjut, rujuk ke RS">${esc(x.plan||'')}</textarea></div>
    <div class="f"><label>Rencana lanjutan</label><div class="chips">${['Observasi','Kontrol ulang','Rujuk RS','Evakuasi medis','Pulang / selesai'].map(k=>`<button type="button" class="chip ${SH.follow===k?'on':''}" data-follow="${k}">${k}</button>`).join('')}</div></div>`,()=>{
-   const rec={id:x.id||uid(),t:fromLocalInput(val('a_t')),doctor:val('a_doc'),dx:val('a_dx'),rx:val('a_rx'),plan:val('a_plan'),follow:SH.follow};
+   const icdRaw=val('a_icd'),icd=(icdRaw.match(/^\s*([A-Z]\d{2}(?:\.\d{1,2})?)/i)||[])[1]||icdRaw;
+   const rec={id:x.id||uid(),t:fromLocalInput(val('a_t')),doctor:val('a_doc'),dx:val('a_dx'),icd:icd.toUpperCase(),rx:val('a_rx'),plan:val('a_plan'),follow:SH.follow};
    if(!rec.dx&&!rec.rx&&!rec.plan){toast('Isi diagnosis, terapi, atau instruksi');return false}
    const lp=getP(p.id)||p,le=ex&&lp.advice.find(a=>a.id===ex.id);le?Object.assign(le,rec):lp.advice.push(rec);save();toast(rec.t<p.createdAt-60000?'Tersimpan — perhatian: jam advice lebih awal dari jam tiba pasien':'Advice tersimpan');render()});
+  $('#a_icd').addEventListener('change',e=>{const m=e.target.value.match(/^\s*([A-Z]\d{2}(?:\.\d{1,2})?)\s*—\s*(.+)$/i);if(m){e.target.value=m[1];if(!val('a_dx'))$('#a_dx').value=m[2]}});
   $('#sf').addEventListener('click',e=>{const c=e.target.closest('[data-follow]');if(c){SH.follow=SH.follow===c.dataset.follow?'':c.dataset.follow;$$('[data-follow]').forEach(b=>b.classList.toggle('on',b.dataset.follow===SH.follow))}});
 }
 function actSheet(p,ex){const x=ex||{};SH.items=new Set(x.items||[]);
@@ -1312,9 +1533,9 @@ setInterval(()=>{$$('[data-since]').forEach(e=>e.textContent=dur(Date.now()-+e.d
 
 /* ---------- export ---------- */
 function download(name,text,type){const b=new Blob([text],{type});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
-function csv(){const h=['Waktu datang','Nama','Paspor','Negara','JK','Usia','Hotel','Kamar','Telepon','Asuransi','Alergi','Keluhan','Diagnosis','Jumlah TTV','NEWS2 terakhir','Tindakan','Status','Hasil','Tujuan','Waktu selesai','Dokter','Perawat'];
+function csv(){const h=['No. RM','Waktu datang','Nama','Paspor','Negara','JK','Usia','Hotel','Kamar','Telepon','Asuransi','Alergi','Keluhan','Diagnosis','Jumlah TTV','NEWS2 terakhir','Tindakan','Status','Hasil','Tujuan','Waktu selesai','Dokter','Perawat'];
   const q=s=>'"'+String(s??'').replace(/"/g,'""')+'"';
-  const rows=DB.patients.map(p=>{const v=lastV(p);return [fDT(p.createdAt),p.identity.name,p.identity.passport,p.identity.nationality,p.identity.sex,ageOf(p),p.identity.hotel,p.identity.room,p.identity.phone,p.identity.insurance,p.identity.allergy,chiefLabel(p),p.advice.map(a=>a.dx).filter(Boolean).join('; '),p.vitals.length,news(v)?.total??'',p.actions.flatMap(a=>a.items||[]).join('; '),p.status,p.outcome?OUTCOMES[p.outcome.type]:'',p.outcome?.dest||'',p.outcome?fDT(p.outcome.t):'',p.team?.doctor,p.team?.nurse].map(q).join(',')});
+  const rows=DB.patients.map(p=>{const v=lastV(p);return [p.mr||'',fDT(p.createdAt),p.identity.name,p.identity.passport,p.identity.nationality,p.identity.sex,ageOf(p),p.identity.hotel,p.identity.room,p.identity.phone,p.identity.insurance,p.identity.allergy,chiefLabel(p),p.advice.map(a=>a.dx).filter(Boolean).join('; '),p.vitals.length,news(v)?.total??'',p.actions.flatMap(a=>a.items||[]).join('; '),p.status,p.outcome?OUTCOMES[p.outcome.type]:'',p.outcome?.dest||'',p.outcome?fDT(p.outcome.t):'',p.team?.doctor,p.team?.nurse].map(q).join(',')});
   download('mitra911-pasien-'+new Date().toISOString().slice(0,10)+'.csv','﻿'+[h.map(q).join(','),...rows].join('\n'),'text/csv');toast('CSV diunduh')}
 function restore(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.patients))throw 0;
   confirmSheet('Pulihkan cadangan?',`File berisi <b>${d.patients.length}</b> pasien. Data saat ini akan diganti.`,'Pulihkan',()=>{const keep={serverUrl:DB.settings.serverUrl,serverKey:DB.settings.serverKey,deviceName:DB.settings.deviceName,sheetUrl:DB.settings.sheetUrl};DB=d;DB.settings=Object.assign({doctor:'',nurse:'',theme:'light',resumeLang:'en',serverUrl:'',serverKey:'',deviceName:'',v2:1},d.settings||{},keep);DB.sync={lastSync:0,lastOk:0,dirty:DB.patients.filter(x=>!x.demo).map(x=>x.id),tomb:[]};buildSnap();persist();applyTheme();toast('Data dipulihkan');render();scheduleSync(500)})}catch(x){toast('File cadangan tidak valid')}};r.readAsText(f)}
@@ -1340,6 +1561,8 @@ document.addEventListener('click',e=>{
   if('back' in d)return R.id?go('detail',{id:R.id}):go('dash');
   if('backDetail' in d)return go('detail',{id:R.id});
   if(d.rlang){DB.settings.resumeLang=d.rlang;save();return render()}
+  if(d.edsig!=null){const g=(DB.settings.signatures||[])[+d.edsig];return g&&sigSheet(g)}
+  if(d.delsig!=null&&d.delsig!==undefined){const k=+d.delsig,g=(DB.settings.signatures||[])[k];if(!g)return;return confirmSheet('Hapus tanda tangan?','Tanda tangan <b>'+esc(g.name)+'</b> tidak akan tercetak lagi di laporan.','Hapus',()=>{DB.settings.signatures.splice(k,1);persist();render()})}
   if(d.themeSet){DB.settings.theme=d.themeSet;save();applyTheme();return render()}
   const p=R.id?getP(R.id):null;
   if(d.delv&&p){return confirmSheet('Hapus TTV?','Data TTV ini akan dihapus.','Hapus',()=>{const lp=getP(p.id)||p;lp.vitals=lp.vitals.filter(v=>v.id!==d.delv);lp.delIds=[...(lp.delIds||[]),d.delv];save();render()})}
@@ -1350,7 +1573,13 @@ document.addEventListener('click',e=>{
     if(k==='end')return finishSheet(p);
     if(k==='v'){const v=p.vitals.find(x=>x.id===id);return v&&vitalSheet(p.id,v)}
     if(k==='d'){const x=p.advice.find(a=>a.id===id);return x&&advSheet(p,x)}
-    if(k==='a'){const x=p.actions.find(a=>a.id===id);return x&&actSheet(p,x)}}
+    if(k==='a'){const x=p.actions.find(a=>a.id===id);return x&&actSheet(p,x)}
+    if(k==='m'){const x=(p.meds||[]).find(a=>a.id===id);return x&&medSheet(p,x)}
+    if(k==='exam')return examSheet(p);}
+  if(d.edmed&&p){const m=(p.meds||[]).find(x=>x.id===d.edmed);return m&&medSheet(p,m)}
+  if(d.edadj&&p){const m=(p.medAdj||[]).find(x=>x.id===d.edadj);return m&&adjSheet(p,m)}
+  if(d.delmed&&p){return confirmSheet('Hapus obat?','Catatan obat ini akan dihapus.','Hapus',()=>{const lp=getP(p.id)||p;lp.meds=(lp.meds||[]).filter(v=>v.id!==d.delmed);lp.delIds=[...(lp.delIds||[]),d.delmed];save();render()})}
+  if(d.deladj&&p){return confirmSheet('Hapus penyesuaian?','Penyesuaian obat ini akan dihapus.','Hapus',()=>{const lp=getP(p.id)||p;lp.medAdj=(lp.medAdj||[]).filter(v=>v.id!==d.deladj);lp.delIds=[...(lp.delIds||[]),d.deladj];save();render()})}
   if(d.edadv&&p)return advSheet(p,p.advice.find(x=>x.id===d.edadv));
   if(d.edact&&p)return actSheet(p,p.actions.find(x=>x.id===d.edact));
   switch(d.act){
@@ -1369,11 +1598,16 @@ document.addEventListener('click',e=>{
     case 'docx':try{exportDocx(buildResume(p,DB.settings.resumeLang||'en'))}catch(err){toast('Gagal membuat Word: '+err.message)}return;
     case 'pdf':toast('Menyiapkan PDF…');exportPdf(buildResume(p,DB.settings.resumeLang||'en')).then(()=>{},err=>toast('Gagal membuat PDF: '+err.message));return;
     case 'addAdv':return advSheet(p);
+    case 'exam':return examSheet(p);
+    case 'addMed':return medSheet(p);
+    case 'addAdj':return adjSheet(p);
+    case 'recs':return recSheet(p);
     case 'addAct':return actSheet(p);
     case 'finish':return finishSheet(p);
     case 'reopen':p.status='aktif';p.outcome=null;save();toast('Pasien dibuka kembali');return render();
     case 'monStart':MON.id=p.id;MON.int=+($('#monint')?.value||15);MON.next=Date.now()+MON.int*60000;MON.due=false;beep();toast('Pengingat TTV tiap '+MON.int+' menit aktif');return render();
     case 'monStop':stopMon();return render();
+    case 'addSig':return sigSheet();
     case 'saveSet':DB.settings.doctor=val('sdoc');DB.settings.nurse=val('snurse');save();toast('Pengaturan tersimpan');return render();
     case 'backup':download('mitra911-cadangan-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(DB),'application/json');return toast('Cadangan diunduh');
     case 'csv':return csv();
