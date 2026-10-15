@@ -386,7 +386,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.15-28';
+const APP_VERSION='v2026.10.15-29';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -895,7 +895,9 @@ function trFields(p){
   return F;
 }
 const trOk=(p,f)=>{const e=p.en&&p.en[f.key];return !!(e&&e.src===f.src&&e.en)};
-function trGet(p,key,src){if(!src)return src;const e=p.en&&p.en[key];return e&&e.src===String(src)&&e.en?e.en:src}
+const fixPron=(p,t)=>{const x=p.identity&&p.identity.sex;return x==='P'?t.replace(/\bhe\b/g,'she').replace(/\bHe\b/g,'She').replace(/\bhim\b/g,'her').replace(/\bhis\b/g,'her').replace(/\bHis\b/g,'Her').replace(/\bhimself\b/g,'herself'):x==='L'?t.replace(/\bshe\b/g,'he').replace(/\bShe\b/g,'He').replace(/\bherself\b/g,'himself'):t};
+const polishEn=(p,t)=>fixPron(p,String(t).replace(/\bsince (\d+) (day|hour|week|month)s? ago\b/gi,(m,n,u)=>'for '+n+' '+u+(n==='1'?'':'s')));
+function trGet(p,key,src){if(!src)return src;const e=p.en&&p.en[key];return e&&e.src===String(src)&&e.en?(e.edited?e.en:polishEn(p,e.en)):src}
 
 let trBusy=false;
 async function translatePatient(p,force){
@@ -906,8 +908,7 @@ async function translatePatient(p,force){
   trBusy=true;render();
   try{
     const j=await api({action:'translate',source:'id',target:'en',texts:todo.map(f=>gloss(f.src))});
-    const fixPron=t=>p.identity.sex==='P'?t.replace(/\bhe\b/g,'she').replace(/\bHe\b/g,'She').replace(/\bhim\b/g,'her').replace(/\bhis\b/g,'her').replace(/\bHis\b/g,'Her').replace(/\bhimself\b/g,'herself'):p.identity.sex==='L'?t.replace(/\bshe\b/g,'he').replace(/\bShe\b/g,'He').replace(/\bherself\b/g,'himself'):t;
-    todo.forEach((f,k)=>{p.en[f.key]={src:f.src,en:fixPron((j.translations[k]||'').trim()),edited:false}});
+    todo.forEach((f,k)=>{p.en[f.key]={src:f.src,en:polishEn(p,(j.translations[k]||'').trim()),edited:false}});
     save();toast(todo.length+' teks diterjemahkan — mohon periksa sebelum diekspor');
   }catch(err){toast('Terjemahan gagal: '+(err.message==='Failed to fetch'?'tidak ada koneksi atau alamat salah':err.message))}
   trBusy=false;render();
