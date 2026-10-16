@@ -386,7 +386,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.15-29';
+const APP_VERSION='v2026.10.16-30';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -1063,7 +1063,7 @@ function buildResume(p,lang){
   pushB(L.sAdv,advB.map(x=>String(x).trim()).filter(Boolean),1);
   if(po)push(L.s10,[[L.outcome,L.out[po.type]||''],[L.dest,hideNone(po.dest)],[L.fnote,hideNone(po.note)]]);else S.push({h:L.s10,kv:[[L.outcome,L.under]],lv:1});
   if(rnote)S.push({h:L.s11,text:rnote,lv:1});
-  return {L,lang,mr:p.mr||'',ref:refNo(p),title:L.title,sub:L.sub,sections:S,nurseLic:'',docSig:sigFor(p.team?.doctor),docName:(sigFor(p.team?.doctor)||{}).name||'',docLic:(sigFor(p.team?.doctor)||{}).lic||'',doctor:(EN?drEn(p.team?.doctor):p.team?.doctor)||'',nurse:p.team?.nurse||'',place:'Yogyakarta',date:dLong(endT||Date.now(),lang),fname:('Laporan_Medis_'+(p.mr?p.mr+'_':'')+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10))};
+  return {L,lang,mr:p.mr||'',ref:refNo(p),title:L.title,sub:L.sub,sections:S,nurseLic:'',docSig:sigFor(p.team?.doctor),docName:(sigFor(p.team?.doctor)||{}).name||'',docLic:(sigFor(p.team?.doctor)||{}).lic||'',docHide:!!(sigFor(p.team?.doctor)||{}).stamp,doctor:(EN?drEn(p.team?.doctor):p.team?.doctor)||'',nurse:p.team?.nurse||'',place:'Yogyakarta',date:dLong(endT||Date.now(),lang),fname:('Laporan_Medis_'+(p.mr?p.mr+'_':'')+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10))};
 }
 const noDot=t=>String(t||'').replace(/[.;,\s]+$/,'');
 const lc1=t=>t&&/^[A-Z][a-z]/.test(t)?t[0].toLowerCase()+t.slice(1):t;
@@ -1079,7 +1079,7 @@ function resumeHTML(R){
       s.bullets?`<ul class="rep-ul">${s.bullets.map(b=>`<li>${esc(b)}</li>`).join('')}</ul>`:
       `<p${s.strong?' style="font-weight:700"':''}>${esc(s.text)}</p>`;
      return `<div class="rep-sec${s.lv===2?' sub':''}">${hd}${body}</div>`}).join('')}
-   <div class="sign"><div class="sgap"></div><div>${esc(R.place)}, ${esc(R.date)}<br>${R.L.signDoc}<div class="sigbox">${R.docSig?`<img src="${R.docSig.img}" alt="Tanda tangan ${esc(R.doctor)}">`:''}</div><div class="ln">${esc(R.docName||R.doctor)}</div>${R.docLic?`<div class="xs">${R.L.lic} ${esc(R.docLic)}</div>`:''}</div></div>
+   <div class="sign"><div class="sgap"></div><div>${esc(R.place)}, ${esc(R.date)}<br>${R.L.signDoc}<div class="sigbox">${R.docSig?`<img src="${R.docSig.img}" alt="Tanda tangan ${esc(R.doctor)}">`:''}</div>${R.docHide&&R.docSig?'':`<div class="ln">${esc(R.docName||R.doctor)}</div>${R.docLic?`<div class="xs">${R.L.lic} ${esc(R.docLic)}</div>`:''}`}</div></div>
    <div class="xs muted" style="text-align:center;margin-top:24px;max-width:60ch;margin-inline:auto">${R.L.gen}</div>`;
 }
 
@@ -1148,13 +1148,14 @@ function sigSheet(ex){
     <div class="row" style="justify-content:space-between"><span class="hint">Atau unggah foto tanda tangan di kertas putih.</span><button type="button" class="btn sm" id="sg_clear">Hapus coretan</button></div></div>
    <div class="f"><label for="sg_file">Unggah foto / scan tanda tangan (opsional)</label><input id="sg_file" type="file" accept="image/*"></div>
    <div id="sg_prev"></div>
+   <label class="row" style="gap:8px;align-items:flex-start;font-size:13.5px"><input type="checkbox" id="sg_stamp" ${ex?.stamp?'checked':''} style="margin-top:3px"><span><b>Stempel sudah memuat nama & nomor izin</b> — nama dan License Number tidak dicetak lagi di bawah tanda tangan.</span></label>
    <label class="row" style="gap:8px;align-items:flex-start;font-size:13.5px"><input type="checkbox" id="sg_ok" style="margin-top:3px"><span>Tanda tangan ini digunakan atas persetujuan dokter yang bersangkutan, dan akan tercetak otomatis pada Laporan Medis pasien yang ditangani dokter tersebut.</span></label>`,
    ()=>{(async()=>{
      const name=val('sg_name');if(!name){toast('Isi nama dokter');return}
      if(!$('#sg_ok').checked){toast('Centang persetujuan dokter terlebih dahulu');return}
      let src=upl;if(!src&&drawn)src=$('#sg_pad').toDataURL('image/png');
      if(!src&&!ex){toast('Buat atau unggah tanda tangan dulu');return}
-     try{const r=src?await cleanSig(src):{img:ex.img,w:ex.w,h:ex.h};const lic=val('sg_lic');DB.settings.signatures=(DB.settings.signatures||[]).filter(x=>x!==ex&&sigKey(x.name)!==sigKey(name));DB.settings.signatures.push({name,lic,...r,t:Date.now()});persist();closeSheet();toast('Tanda tangan '+name+' tersimpan');render()}catch(e){toast(e.message)}
+     try{const r=src?await cleanSig(src):{img:ex.img,w:ex.w,h:ex.h};const lic=val('sg_lic'),stamp=$('#sg_stamp').checked;DB.settings.signatures=(DB.settings.signatures||[]).filter(x=>x!==ex&&sigKey(x.name)!==sigKey(name));DB.settings.signatures.push({name,lic,stamp,...r,t:Date.now()});persist();closeSheet();toast('Tanda tangan '+name+' tersimpan');render()}catch(e){toast(e.message)}
    })();return false},'Simpan tanda tangan');
   const cv=$('#sg_pad'),x=cv.getContext('2d');x.lineWidth=6;x.lineCap='round';x.lineJoin='round';x.strokeStyle='#0D1A33';let on=false;
   const pt=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height]};
@@ -1214,7 +1215,7 @@ function exportDocx(R){
     else body+=para(s.text,{sz:s.strong?22:20,b:!!s.strong,after:60});
   }
   body+=para('',{after:360});
-  body+=tbl([`<w:tr>${cell(para(' ',{sz:19,after:0}),TW/2)}${cell(para(R.place+', '+R.date,{sz:19,align:'center',after:0})+(R.docSig?para(R.L.signDoc,{sz:19,align:'center',after:40})+`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${sigRun(R.docSig)}</w:p>`:para(R.L.signDoc,{sz:19,align:'center',after:900}))+para(R.docName||R.doctor,{b:true,sz:20,align:'center',after:0})+(R.docLic?para(R.L.lic+' '+R.docLic,{sz:18,align:'center',after:0}):''),TW/2)}</w:tr>`],[TW/2,TW/2],{noBorder:true});
+  body+=tbl([`<w:tr>${cell(para(' ',{sz:19,after:0}),TW/2)}${cell(para(R.place+', '+R.date,{sz:19,align:'center',after:0})+(R.docSig?para(R.L.signDoc,{sz:19,align:'center',after:40})+`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${sigRun(R.docSig)}</w:p>`:para(R.L.signDoc,{sz:19,align:'center',after:900}))+(R.docHide&&R.docSig?'':para(R.docName||R.doctor,{b:true,sz:20,align:'center',after:0})+(R.docLic?para(R.L.lic+' '+R.docLic,{sz:18,align:'center',after:0}):'')),TW/2)}</w:tr>`],[TW/2,TW/2],{noBorder:true});
   body+=para(R.L.gen,{sz:15,color:'8A97B0',align:'center',before:300});
   const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="1000" w:bottom="900" w:left="1000" w:header="500" w:footer="500" w:gutter="0"/></w:sectPr></w:body></w:document>`;
   const files=[
@@ -1265,9 +1266,9 @@ async function exportPdf(R){
   const c1=M+(W-2*M)/4,c2=M+3*(W-2*M)/4;
   doc.text(T(R.place+', '+R.date),c2,y,{align:'center'});doc.text(T(R.L.signDoc),c2,y+5,{align:'center'});
   if(R.docSig){let sh=17,sw=sh*R.docSig.w/R.docSig.h;if(sw>72){sw=72;sh=sw*R.docSig.h/R.docSig.w}doc.addImage(R.docSig.img,'PNG',c2-sw/2,y+24-sh,sw,sh)}
-  doc.setDrawColor(13,26,51);doc.setLineWidth(.3);doc.line(c2-34,y+25,c2+34,y+25);
-  doc.setFont('helvetica','bold');doc.text(T(R.docName||R.doctor),c2,y+30,{align:'center'});
-  if(R.docLic){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(T(R.L.lic+' '+R.docLic),c2,y+35,{align:'center'})}
+  if(!(R.docHide&&R.docSig)){doc.setDrawColor(13,26,51);doc.setLineWidth(.3);doc.line(c2-34,y+25,c2+34,y+25);
+  doc.setFont('helvetica','bold');doc.text(T(R.docName||R.doctor),c2,y+30,{align:'center'});}
+  if(R.docLic&&!(R.docHide&&R.docSig)){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(T(R.L.lic+' '+R.docLic),c2,y+35,{align:'center'})}
   const n=doc.getNumberOfPages();
   for(let k=1;k<=n;k++){doc.setPage(k);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(138,151,176);doc.text(T(R.L.gen),M,286.5,{maxWidth:W-2*M});doc.text(T(R.mr?R.L.mr+': '+R.mr:R.L.ref+' '+R.ref),M,290.5);doc.text(T(`${R.L.page} ${k} ${R.L.of} ${n}`),W-M,290.5,{align:'right'})}
   return saveBlob(R.fname+'.pdf',doc.output('blob'));
