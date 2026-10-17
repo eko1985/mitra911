@@ -386,7 +386,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.18-36';
+const APP_VERSION='v2026.10.18-38';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -1103,6 +1103,15 @@ function sigBlock(g){const m=DB.settings.sigMode||'both';
 async function stampUpload(e){const f=e.target.files[0];if(!f)return;
   try{const src=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)});
     const r=await cleanSig(src);DB.settings.stamp=r;DB.settings.stampOff=false;COMP.clear();persist();preloadSig();toast('Cap basah tersimpan');render()}catch(err){toast(err.message)}}
+/* perbaiki nama dokter yang tertempel nama default (mis. "…, M.K.MDr. Irwan Taufik") */
+function unglueNames(){
+  const known=[...new Set([DB.settings.doctor,...DB.patients.map(p=>p.team&&p.team.doctor)].filter(n=>n&&n.trim().length>4).map(n=>n.trim()))];
+  const fix=n=>{if(!n)return n;for(const k of known){if(n.length>k.length&&n.endsWith(k)){const head=n.slice(0,-k.length);if(head&&!/\s$/.test(head)&&/[A-Za-z.]$/.test(head))return head.trim()}}return n};
+  let ch=false;
+  (DB.settings.signatures||[]).forEach(g=>{const f=fix(g.name);if(f!==g.name){g.name=f;ch=true}});
+  DB.patients.forEach(p=>{if(p.ftfCert&&p.ftfCert.doctor){const f=fix(p.ftfCert.doctor);if(f!==p.ftfCert.doctor){p.ftfCert.doctor=f;ch=true}}});
+  if(ch){save();COMP.clear()}
+}
 /* ---------- surat Fit to Fly ---------- */
 const FTF_AS=[['wchr','Wheelchair assistance at the airport (WCHR)','Bantuan kursi roda di bandara (WCHR)'],['comp','Should travel with a companion','Sebaiknya didampingi pendamping'],['medesc','Medical escort required during the flight','Perlu pendamping medis selama penerbangan'],['o2','Supplemental oxygen during the flight (airline MEDIF form required)','Oksigen tambahan selama penerbangan (perlu formulir MEDIF maskapai)'],['aisle','Aisle seat near the lavatory','Kursi lorong dekat toilet'],['leg','Extra legroom / able to elevate the leg','Ruang kaki ekstra / kaki dapat ditinggikan'],['meds','Prescribed medications to be carried in hand luggage','Obat resep dibawa di bagasi kabin'],['hydr','Maintain good hydration and mobilise regularly during the flight','Cukup minum dan rutin bergerak selama penerbangan']];
 const FTF_L={
@@ -1147,7 +1156,7 @@ function buildFtf(p,lang){
   return {L,lang,mr:p.mr||'',ref:refNo(p),title:F.title,sub:f.st==='fit'?F.subY:F.subN,sections:S,...sigBlock(g),docName:(g||{}).name||'',docLic:(g||{}).lic||'',doctor:dr,place:'Yogyakarta',date:dLong(+ex,lang),
     fname:((f.st==='fit'?'Fit_to_Fly_':'Not_Fit_to_Fly_')+(p.mr?p.mr+'_':'')+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(+ex).toISOString().slice(0,10))};
 }
-const curDoc=p=>{const l=DB.settings.resumeLang||'en';return R.doc==='ftf'?buildFtf(p,l):buildResume(p,l)};
+const curDoc=p=>{try{unglueNames()}catch(e){}const l=DB.settings.resumeLang||'en';return R.doc==='ftf'?buildFtf(p,l):buildResume(p,l)};
 function ftfForm(p){const f=ftfData(p);
   return `<div class="card pad noprint" style="display:flex;flex-direction:column;gap:12px" id="ftfform">
    <h2 style="font-size:16px">Isi surat Fit to Fly</h2>
@@ -1155,9 +1164,9 @@ function ftfForm(p){const f=ftfData(p);
    <div class="fgrid"><div class="f"><label for="ft_exam">Waktu pemeriksaan</label><input id="ft_exam" data-ftf-f="exam" type="datetime-local" value="${toLocalInput(f.exam)}"></div>
     ${f.st==='fit'?`<div class="f"><label for="ft_valid">Berlaku (jam)</label><input id="ft_valid" data-ftf-f="valid" type="number" min="0" inputmode="numeric" value="${esc(f.valid)}"><span class="hint">Umumnya 72 jam; kosongkan bila tidak perlu.</span></div>`
      :`<div class="f"><label for="ft_until">Tidak terbang sebelum (opsional)</label><input id="ft_until" data-ftf-f="until" type="date" value="${esc(f.until)}"></div>`}</div>
-   <div class="f"><label for="ft_doc">Dokter pemeriksa</label><input id="ft_doc" data-ftf-f="doctor" list="ft_docs" value="${esc(f.doctor||p.team?.doctor||'')}" autocomplete="off"><datalist id="ft_docs">${[...new Set([...(DB.settings.signatures||[]).map(g=>g.name),DB.settings.doctor,p.team?.doctor].filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('')}</datalist><span class="hint">Bisa berbeda dari dokter kunjungan pertama. Tanda tangan mengikuti nama ini.</span></div>
+   <div class="f"><label for="ft_doc">Dokter pemeriksa</label><input id="ft_doc" data-ftf-f="doctor" list="ft_docs" value="${esc(f.doctor||'')}" placeholder="${esc(p.team?.doctor||'Nama dokter')}" autocomplete="off"><datalist id="ft_docs">${[...new Set([...(DB.settings.signatures||[]).map(g=>g.name),DB.settings.doctor,p.team?.doctor].filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('')}</datalist><span class="hint">Kosongkan untuk memakai dokter kunjungan (${esc(p.team?.doctor||'–')}). Tanda tangan & License Number mengikuti nama ini.</span></div>
    <div class="f"><label for="ft_vs">Tanda vital yang dicantumkan</label><select id="ft_vs" data-ftf-f="vsId"><option value="">Terakhir tercatat${(()=>{const v=p.vitals.slice().sort((a,b)=>b.t-a.t)[0];return v?' ('+fTime(v.t)+')':''})()}</option>${p.vitals.slice().sort((a,b)=>b.t-a.t).map(v=>`<option value="${esc(v.id)}" ${f.vsId===v.id?'selected':''}>${fDate(v.t)} ${fTime(v.t)} · TD ${v.sbp||'–'}/${v.dbp||'–'}, N ${v.hr||'–'}, S ${v.temp||'–'}</option>`).join('')}<option value="manual" ${f.vsId==='manual'?'selected':''}>Isi manual (pemeriksaan untuk surat ini)</option></select>
-    ${f.vsId==='manual'?`<div class="fgrid" style="margin-top:8px;grid-template-columns:repeat(auto-fit,minmax(90px,1fr))">${[['sbp','TD sistolik'],['dbp','TD diastolik'],['hr','Nadi'],['rr','RR'],['temp','Suhu °C'],['spo2','SpO₂ %']].map(([k,l])=>`<div class="f"><label for="ftv_${k}">${l}</label><input id="ftv_${k}" data-ftf-v="${k}" inputmode="decimal" value="${esc(f.vsMan[k]??'')}"></div>`).join('')}</div><span class="hint">Jam TTV manual = waktu pemeriksaan di atas.</span>`:''}</div>
+    ${f.vsId==='manual'?`<div class="fgrid" style="margin-top:8px;grid-template-columns:repeat(auto-fit,minmax(90px,1fr))">${[['sbp','TD sistolik'],['dbp','TD diastolik'],['hr','Nadi'],['rr','RR'],['temp','Suhu °C'],['spo2','SpO₂ %']].map(([k,l])=>`<div class="f"><label for="ftv_${k}">${l}</label><input id="ftv_${k}" data-ftf-v="${k}" inputmode="decimal" value="${esc(f.vsMan[k]??'')}"></div>`).join('')}</div><span class="hint">Jam TTV manual = waktu pemeriksaan di atas.</span>`:(()=>{const vs=p.vitals.slice().sort((a,b)=>a.t-b.t),v=(f.vsId&&vs.find(x=>x.id===f.vsId))||vs[vs.length-1],ex=+new Date(f.exam);if(!v)return `<span class="hint" style="color:var(--warn)">Belum ada TTV tercatat — pilih “Isi manual”.</span>`;const h=Math.abs(ex-v.t)/3600000;return h>12?`<div class="newsbar" style="background:var(--warn-soft);margin-top:6px"><span>TTV yang dipakai dari <b>${fDate(v.t)} ${fTime(v.t)}</b>, ${Math.round(h)} jam dari waktu pemeriksaan. Pilih TTV terbaru atau “Isi manual”.</span></div>`:''})()}</div>
    <div class="fgrid"><div class="f"><label for="ft_fdate">Tanggal terbang</label><input id="ft_fdate" data-ftf-f="fdate" type="date" value="${esc(f.fdate)}"></div>
     <div class="f"><label for="ft_fno">No. penerbangan</label><input id="ft_fno" data-ftf-f="fno" value="${esc(f.fno)}" placeholder="mis. GA 205" autocomplete="off"></div>
     <div class="f"><label for="ft_route">Rute / maskapai</label><input id="ft_route" data-ftf-f="route" value="${esc(f.route)}" placeholder="mis. YIA → CGK → AMS, Garuda" autocomplete="off"></div></div>
@@ -1243,7 +1252,7 @@ function cleanSig(src){return new Promise((res,rej)=>{const im=new Image();im.on
 function sigSheet(ex){
   let drawn=false,upl=null;
   sheet(ex?'Ubah tanda tangan dokter':'Tambah tanda tangan dokter',`
-   <div class="f"><label for="sg_name">Nama dokter (sama persis dengan di data pasien)</label><input id="sg_name" value="${esc(ex?ex.name:(DB.settings.doctor||''))}" placeholder="mis. Dr. Irwan Taufik, MKes"></div>
+   <div class="f"><label for="sg_name">Nama dokter (sama persis dengan di data pasien)</label><input id="sg_name" value="${esc(ex?ex.name:'')}" placeholder="mis. Dr. Irwan Taufik, MKes"></div>
    <div class="f"><label for="sg_lic">License Number / No. SIP (opsional)</label><input id="sg_lic" value="${esc(ex?.lic||'')}" placeholder="mis. 503/5846.3846.384/XI/2021" autocomplete="off"><span class="hint">Dicetak di bawah nama dokter pada laporan.</span></div>
    ${ex?`<div class="f"><label>Tanda tangan saat ini</label><div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center"><img src="${ex.img}" alt="Tanda tangan ${esc(ex.name)}" style="max-height:80px;max-width:100%"></div><span class="hint">Biarkan kotak di bawah kosong bila tidak ingin mengganti tanda tangan.</span></div>`:''}
    <div class="f"><label>Gambar tanda tangan dengan jari / mouse</label>
@@ -1733,6 +1742,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#ov'))closeSheet();if(e.key==='Enter'&&e.target.matches('[data-open]'))go('detail',{id:e.target.dataset.open,tab:'ring'})});
 
+try{unglueNames()}catch(e){}
 preloadSig();
 render();
 })();

@@ -1,4 +1,4 @@
-const CACHE='mitra911-v32';
+const CACHE='mitra911-v34';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-maskable-512.png','./apple-touch-icon.png',
   './lib/jspdf.umd.min.js','./lib/jspdf.plugin.autotable.min.js','./jspdf.umd.min.js','./jspdf.plugin.autotable.min.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>Promise.allSettled(ASSETS.map(a=>c.add(new Request(a,{cache:'reload'}))))));self.skipWaiting()});
