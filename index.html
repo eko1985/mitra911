@@ -386,7 +386,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.17-32';
+const APP_VERSION='v2026.10.18-34';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -833,6 +833,10 @@ function vSet(){const s=DB.settings,demo=DB.patients.filter(p=>p.demo).length;
     <p class="small muted" style="margin:0">Tercetak otomatis di Laporan Medis bila nama dokter pada data pasien sama dengan nama di sini.</p>
     ${(s.signatures||[]).length?`<div style="display:flex;flex-direction:column;gap:8px">${s.signatures.map((g,k)=>`<div class="newsbar"><div class="row" style="gap:12px;flex-wrap:nowrap;min-width:0"><span style="background:#fff;border-radius:8px;padding:4px 8px;border:1px solid var(--line)"><img src="${g.img}" alt="Tanda tangan ${esc(g.name)}" style="height:38px;max-width:140px;object-fit:contain;display:block"></span><div style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis">${esc(g.name)}</b>${g.lic?`<span class="xs muted">License No. ${esc(g.lic)}</span>`:'<span class="xs muted">License Number belum diisi</span>'}</div></div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm" data-edsig="${k}">Ubah</button><button class="btn sm danger" data-delsig="${k}">Hapus</button></div></div>`).join('')}</div>`:''}
     <div class="row"><button class="btn" data-act="addSig">${ic('edit')}Tambah tanda tangan dokter</button></div>
+    <h3 style="margin-top:8px">Cap basah Mitra 911</h3>
+    <p class="small muted" style="margin:0">Dicetak menumpuk di sisi kiri tanda tangan dokter pada Medical Report dan Surat Fit to Fly. Gunakan file PNG cap yang sudah dibersihkan.</p>
+    ${s.stamp?`<div class="newsbar"><div class="row" style="gap:12px;flex-wrap:nowrap;min-width:0"><span style="background:#fff;border-radius:8px;padding:6px 10px;border:1px solid var(--line)"><img src="${s.stamp.img}" alt="Cap Mitra 911" style="height:38px;max-width:160px;object-fit:contain;display:block"></span><label class="row" style="gap:6px;font-size:13.5px"><input type="checkbox" id="stampOn" ${s.stampOff?'':'checked'}>Cetak di laporan</label></div><button class="btn sm danger" data-act="delStamp">Hapus</button></div>`:''}
+    <div class="f"><label for="stampFile">${s.stamp?'Ganti':'Unggah'} gambar cap</label><input id="stampFile" type="file" accept="image/*"></div>
     <h3 style="margin-top:8px">Tampilan</h3><div class="seg">${[['light','Terang'],['system','Ikuti sistem'],['dark','Gelap']].map(([k,l])=>`<button class="${s.theme===k?'on':''}" data-theme-set="${k}">${l}</button>`).join('')}</div>
    </div>
    <div class="card fsec"><h3>Data & cadangan</h3>
@@ -1064,9 +1068,41 @@ function buildResume(p,lang){
   pushB(L.sAdv,advB.map(x=>String(x).trim()).filter(Boolean),1);
   if(po)push(L.s10,[[L.outcome,L.out[po.type]||''],[L.dest,hideNone(po.dest)],[L.fnote,hideNone(po.note)]]);else S.push({h:L.s10,kv:[[L.outcome,L.under]],lv:1});
   if(rnote)S.push({h:L.s11,text:rnote,lv:1});
-  return {L,lang,mr:p.mr||'',ref:refNo(p),title:L.title,sub:L.sub,sections:S,nurseLic:'',docSig:sigFor(p.team?.doctor),docName:(sigFor(p.team?.doctor)||{}).name||'',docLic:(sigFor(p.team?.doctor)||{}).lic||'',docHide:!!(sigFor(p.team?.doctor)||{}).stamp,doctor:(EN?drEn(p.team?.doctor):p.team?.doctor)||'',nurse:p.team?.nurse||'',place:'Yogyakarta',date:dLong(endT||Date.now(),lang),fname:('Laporan_Medis_'+(p.mr?p.mr+'_':'')+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10))};
+  return {L,lang,mr:p.mr||'',ref:refNo(p),title:L.title,sub:L.sub,sections:S,nurseLic:'',...sigBlock(sigFor(p.team?.doctor)),docName:(sigFor(p.team?.doctor)||{}).name||'',docLic:(sigFor(p.team?.doctor)||{}).lic||'',doctor:(EN?drEn(p.team?.doctor):p.team?.doctor)||'',nurse:p.team?.nurse||'',place:'Yogyakarta',date:dLong(endT||Date.now(),lang),fname:('Laporan_Medis_'+(p.mr?p.mr+'_':'')+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(p.createdAt).toISOString().slice(0,10))};
 }
 const CONTACT='E-mail: mitra911.com@gmail.com  ·  WhatsApp: +62 811 2523 5555';
+/* ---------- cap basah (stempel instansi) ---------- */
+const IMGC=new Map(),COMP=new Map();
+function imgOf(src){if(!src)return null;let im=IMGC.get(src);if(!im){im=new Image();im.onload=()=>{if(R.view==='report')render()};im.src=src;IMGC.set(src,im)}return im.complete&&im.naturalWidth?im:null}
+function preloadSig(){const st=DB.settings.stamp;if(st)imgOf(st.img);(DB.settings.signatures||[]).forEach(g=>imgOf(g.img))}
+function withStamp(g){
+  const st=DB.settings.stamp;if(!st||DB.settings.stampOff)return g;
+  const si=imgOf(st.img);if(!si)return g;
+  if(!g)return {img:st.img,w:st.w,h:st.h,stampOnly:true};
+  const gi=imgOf(g.img);if(!gi)return g;
+  const key=g.img.length+'|'+g.img.slice(-60)+'|'+st.img.length+'|'+st.img.slice(-60);
+  let c=COMP.get(key);if(c)return Object.assign({},g,c);
+  const H=Math.max(g.h,180),k=H/g.h,gw=g.w*k,sh=H*.5,sw=sh*st.w/st.h,sx=sw*.66,W=Math.max(sw+8,sx+gw);
+  const cv=document.createElement('canvas');cv.width=Math.round(W);cv.height=Math.round(H);const x=cv.getContext('2d');
+  x.drawImage(gi,sx,0,gw,H);
+  x.save();x.globalAlpha=.9;x.globalCompositeOperation='multiply';x.translate(4+sw/2,H*.4);x.rotate(-3*Math.PI/180);x.drawImage(si,-sw/2,-sh/2,sw,sh);x.restore();
+  c={img:cv.toDataURL('image/png'),w:cv.width,h:cv.height};COMP.set(key,c);return Object.assign({},g,c);
+}
+/* mode tanda tangan di laporan: both = TTD + cap digital, stamp = cap saja (TTD basah), none = kosong (TTD & cap basah) */
+const SIGMODES=[['both','TTD + cap'],['stamp','Cap saja · TTD basah'],['none','Kosong · TTD & cap basah']];
+function stampOnly(){const st=DB.settings.stamp;if(!st||DB.settings.stampOff)return null;const si=imgOf(st.img);if(!si)return null;
+  const key='SO|'+st.img.length+'|'+st.img.slice(-60);let c=COMP.get(key);if(c)return c;
+  const H=180,sh=H*.5,sw=sh*st.w/st.h,W=Math.round(sw*.66+H*2.2);
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
+  x.save();x.globalAlpha=.9;x.translate(4+sw/2,H*.4);x.rotate(-3*Math.PI/180);x.drawImage(si,-sw/2,-sh/2,sw,sh);x.restore();
+  c={img:cv.toDataURL('image/png'),w:W,h:H};COMP.set(key,c);return c}
+function sigBlock(g){const m=DB.settings.sigMode||'both';
+  if(m==='none')return {docSig:null,docHide:false,wet:true};
+  if(m==='stamp')return {docSig:stampOnly(),docHide:false,wet:true};
+  return {docSig:withStamp(g),docHide:!!(g&&g.stamp)}}
+async function stampUpload(e){const f=e.target.files[0];if(!f)return;
+  try{const src=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)});
+    const r=await cleanSig(src);DB.settings.stamp=r;DB.settings.stampOff=false;COMP.clear();persist();preloadSig();toast('Cap basah tersimpan');render()}catch(err){toast(err.message)}}
 /* ---------- surat Fit to Fly ---------- */
 const FTF_AS=[['wchr','Wheelchair assistance at the airport (WCHR)','Bantuan kursi roda di bandara (WCHR)'],['comp','Should travel with a companion','Sebaiknya didampingi pendamping'],['medesc','Medical escort required during the flight','Perlu pendamping medis selama penerbangan'],['o2','Supplemental oxygen during the flight (airline MEDIF form required)','Oksigen tambahan selama penerbangan (perlu formulir MEDIF maskapai)'],['aisle','Aisle seat near the lavatory','Kursi lorong dekat toilet'],['leg','Extra legroom / able to elevate the leg','Ruang kaki ekstra / kaki dapat ditinggikan'],['meds','Prescribed medications to be carried in hand luggage','Obat resep dibawa di bagasi kabin'],['hydr','Maintain good hydration and mobilise regularly during the flight','Cukup minum dan rutin bergerak selama penerbangan']];
 const FTF_L={
@@ -1108,7 +1144,7 @@ function buildFtf(p,lang){
   if(f.st==='fit'){const b=f.as.map(k=>lk(FTF_AS,k,EN?1:2)).filter(Boolean);S.push({h:F.sReq,bullets:b.length?b:[F.noAs],lv:1})}
   const note=EN?T('ftf.cert',f.note):f.note;if(note)S.push({h:F.sRem,text:note,lv:1});
   const g=sigFor(p.team?.doctor);
-  return {L,lang,mr:p.mr||'',ref:refNo(p),title:F.title,sub:f.st==='fit'?F.subY:F.subN,sections:S,docSig:g,docName:(g||{}).name||'',docLic:(g||{}).lic||'',docHide:!!(g||{}).stamp,doctor:dr,place:'Yogyakarta',date:dLong(+ex,lang),
+  return {L,lang,mr:p.mr||'',ref:refNo(p),title:F.title,sub:f.st==='fit'?F.subY:F.subN,sections:S,...sigBlock(g),docName:(g||{}).name||'',docLic:(g||{}).lic||'',doctor:dr,place:'Yogyakarta',date:dLong(+ex,lang),
     fname:((f.st==='fit'?'Fit_to_Fly_':'Not_Fit_to_Fly_')+(p.mr?p.mr+'_':'')+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(+ex).toISOString().slice(0,10))};
 }
 const curDoc=p=>{const l=DB.settings.resumeLang||'en';return R.doc==='ftf'?buildFtf(p,l):buildResume(p,l)};
@@ -1219,7 +1255,7 @@ function sigSheet(ex){
      if(!$('#sg_ok').checked){toast('Centang persetujuan dokter terlebih dahulu');return}
      let src=upl;if(!src&&drawn)src=$('#sg_pad').toDataURL('image/png');
      if(!src&&!ex){toast('Buat atau unggah tanda tangan dulu');return}
-     try{const r=src?await cleanSig(src):{img:ex.img,w:ex.w,h:ex.h};const lic=val('sg_lic'),stamp=$('#sg_stamp').checked;DB.settings.signatures=(DB.settings.signatures||[]).filter(x=>x!==ex&&sigKey(x.name)!==sigKey(name));DB.settings.signatures.push({name,lic,stamp,...r,t:Date.now()});persist();closeSheet();toast('Tanda tangan '+name+' tersimpan');render()}catch(e){toast(e.message)}
+     try{const r=src?await cleanSig(src):{img:ex.img,w:ex.w,h:ex.h};const lic=val('sg_lic'),stamp=$('#sg_stamp').checked;DB.settings.signatures=(DB.settings.signatures||[]).filter(x=>x!==ex&&sigKey(x.name)!==sigKey(name));DB.settings.signatures.push({name,lic,stamp,...r,t:Date.now()});persist();preloadSig();closeSheet();toast('Tanda tangan '+name+' tersimpan');render()}catch(e){toast(e.message)}
    })();return false},'Simpan tanda tangan');
   const cv=$('#sg_pad'),x=cv.getContext('2d');x.lineWidth=6;x.lineCap='round';x.lineJoin='round';x.strokeStyle='#0D1A33';let on=false;
   const pt=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height]};
@@ -1264,7 +1300,7 @@ function exportDocx(R){
   const cell=(c,w,o={})=>`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${o.fill?`<w:shd w:val="clear" w:color="auto" w:fill="${o.fill}"/>`:''}<w:tcMar><w:top w:w="50" w:type="dxa"/><w:bottom w:w="50" w:type="dxa"/></w:tcMar></w:tcPr>${c}</w:tc>`;
   const tbl=(rows,ws,o={})=>`<w:tbl><w:tblPr><w:tblW w:w="${ws.reduce((a,b)=>a+b,0)}" w:type="dxa"/><w:tblBorders>${o.noBorder?['top','left','bottom','right','insideH','insideV'].map(s=>`<w:${s} w:val="nil"/>`).join(''):['top','left','bottom','right','insideH','insideV'].map(s=>`<w:${s} w:val="single" w:sz="4" w:color="${LINE}"/>`).join('')}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="90" w:type="dxa"/><w:right w:w="90" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${ws.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${rows.join('')}</w:tbl>`;
   const TW=9900;
-  const sigRun=g=>{let cy=Math.round(914400*0.62);if(cy*g.w/g.h>914400*2.6)cy=Math.round(914400*2.6*g.h/g.w);const sx=Math.round(cy*g.w/g.h);return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${sx}" cy="${cy}"/><wp:docPr id="2" name="Signature"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="2" name="sig.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdSig"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${sx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`};
+  const sigRun=g=>{let cy=Math.round(914400*0.62);if(cy*g.w/g.h>914400*3.3)cy=Math.round(914400*3.3*g.h/g.w);const sx=Math.round(cy*g.w/g.h);return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${sx}" cy="${cy}"/><wp:docPr id="2" name="Signature"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="2" name="sig.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdSig"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${sx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`};
   const cx=2286000,cy=Math.round(cx*170/635);
   const img=`<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Logo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="logo.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdLogo"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
   let body=tbl([`<w:tr>${cell(`<w:p>${img}</w:p>`,5200)}${cell(para(R.title,{b:true,sz:30,color:NAVY,align:'right',after:0})+para(R.sub,{sz:20,color:'5A6987',align:'right',after:0})+(R.mr?para(R.L.mr+': '+R.mr,{sz:17,b:true,align:'right',after:0}):para(R.L.ref+' '+R.ref,{sz:17,color:'5A6987',align:'right',after:0})),4700)}</w:tr>`],[5200,4700],{noBorder:true});
@@ -1329,7 +1365,7 @@ async function exportPdf(R){
   y+=2;doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(13,26,51);
   const c1=M+(W-2*M)/4,c2=M+3*(W-2*M)/4;
   doc.text(T(R.place+', '+R.date),c2,y,{align:'center'});doc.text(T(R.L.signDoc),c2,y+5,{align:'center'});
-  if(R.docSig){let sh=17,sw=sh*R.docSig.w/R.docSig.h;if(sw>72){sw=72;sh=sw*R.docSig.h/R.docSig.w}doc.addImage(R.docSig.img,'PNG',c2-sw/2,y+24-sh,sw,sh)}
+  if(R.docSig){let sh=17,sw=sh*R.docSig.w/R.docSig.h;if(sw>86){sw=86;sh=sw*R.docSig.h/R.docSig.w}doc.addImage(R.docSig.img,'PNG',c2-sw/2,y+24-sh,sw,sh)}
   if(!(R.docHide&&R.docSig)){doc.setDrawColor(13,26,51);doc.setLineWidth(.3);doc.line(c2-34,y+25,c2+34,y+25);
   doc.setFont('helvetica','bold');doc.text(T(R.docName||R.doctor),c2,y+30,{align:'center'});}
   if(R.docLic&&!(R.docHide&&R.docSig)){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(T(R.L.lic+' '+R.docLic),c2,y+35,{align:'center'})}
@@ -1346,6 +1382,7 @@ function vReport(){
   <div class="seg noprint" style="align-self:flex-start">${[['rep','Medical Report'],['ftf','Surat Fit to Fly']].map(([k,l])=>`<button class="${(FT?'ftf':'rep')===k?'on':''}" data-rdoc="${k}">${l}</button>`).join('')}</div>
   <div class="card pad noprint" style="display:flex;flex-direction:column;gap:14px">
    <div class="row between"><div class="row"><span class="eyebrow">Bahasa laporan</span><div class="seg">${[['en','English'],['id','Indonesia']].map(([k,l])=>`<button class="${lang===k?'on':''}" data-rlang="${k}">${l}</button>`).join('')}</div></div>
+    <div class="row"><span class="eyebrow">Tanda tangan</span><div class="seg">${SIGMODES.map(([k,l])=>`<button class="${(DB.settings.sigMode||'both')===k?'on':''}" data-sigmode="${k}">${l}</button>`).join('')}</div></div>
     <div class="row">${IN_FRAME?`<span class="xs muted">Ekspor Word & PDF aktif di aplikasi yang sudah dipasang.</span>`:`<button class="btn pri" data-act="docx">${ic('doc')}Word (.docx)</button><button class="btn go" data-act="pdf">${ic('install')}PDF</button><button class="btn" data-act="print">Cetak</button>`}</div></div>
    ${FT?'':`<div class="f"><label for="rnote">Catatan tambahan untuk laporan (opsional)</label><textarea id="rnote" placeholder="mis. Pasien disarankan kontrol ke dokter di negara asal; surat fit to fly diberikan.">${esc(p.resumeNote||'')}</textarea><span class="hint">Tersimpan otomatis dan muncul sebagai bagian “${RL[lang].s11}”.</span></div>`}
   </div>
@@ -1425,7 +1462,7 @@ function render(){
   if(v==='report'){let tm;$$('[data-trkey]').forEach(t=>t.addEventListener('input',()=>{const p=getP(R.id);const f=trFields(p).find(x=>x.key===t.dataset.trkey);if(!f)return;p.en=p.en||{};
     if(t.value.trim())p.en[f.key]={src:f.src,en:t.value,edited:true};else delete p.en[f.key];save();clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(p))},300)}))}
   if(v==='report'&&R.doc==='ftf'){let tm;$$('[data-ftf-f]').forEach(t=>{const h=()=>{const p=getP(R.id);if(!p)return;let x=t.type==='checkbox'?t.checked:t.value;if(t.dataset.ftfF==='exam')x=fromLocalInput(x)||Date.now();if(t.dataset.ftfF==='valid')x=x===''?0:Math.max(0,+x);ftfSet(p,t.dataset.ftfF,x);clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(getP(R.id)))},250)};t.addEventListener('input',h);t.addEventListener('change',h)})}
-  if(v==='set'){const r=$('#restore');r&&r.addEventListener('change',restore)}
+  if(v==='set'){const r=$('#restore');r&&r.addEventListener('change',restore);const sf=$('#stampFile');sf&&sf.addEventListener('change',stampUpload);const so=$('#stampOn');so&&so.addEventListener('change',()=>{DB.settings.stampOff=!so.checked;persist();toast(so.checked?'Cap akan dicetak':'Cap tidak dicetak')})}
   if(v==='detail'&&R.tab==='ttv'){const s=$('#monint');s&&s.addEventListener('change',()=>{MON.int=+s.value;if(MON.id){MON.next=Date.now()+MON.int*60000;MON.due=false}render()})}
 }
 
@@ -1630,6 +1667,7 @@ document.addEventListener('click',e=>{
   if('back' in d)return R.id?go('detail',{id:R.id}):go('dash');
   if('backDetail' in d)return go('detail',{id:R.id});
   if(d.rlang){DB.settings.resumeLang=d.rlang;save();return render()}
+  if(d.sigmode){DB.settings.sigMode=d.sigmode;persist();return render()}
   if(d.rdoc){R.doc=d.rdoc==='ftf'?'ftf':'';return render()}
   if(d.ftfst){const p=getP(R.id);if(p)ftfSet(p,'st',d.ftfst);return render()}
   if(d.ftfas){const p=getP(R.id);if(!p)return;const a=ftfData(p).as.slice(),k=a.indexOf(d.ftfas);k<0?a.push(d.ftfas):a.splice(k,1);ftfSet(p,'as',a);return render()}
@@ -1681,6 +1719,7 @@ document.addEventListener('click',e=>{
     case 'monStart':MON.id=p.id;MON.int=+($('#monint')?.value||15);MON.next=Date.now()+MON.int*60000;MON.due=false;beep();toast('Pengingat TTV tiap '+MON.int+' menit aktif');return render();
     case 'monStop':stopMon();return render();
     case 'addSig':return sigSheet();
+    case 'delStamp':return confirmSheet('Hapus cap basah?','Cap Mitra 911 tidak akan tercetak lagi di laporan.','Hapus',()=>{delete DB.settings.stamp;COMP.clear();persist();render()});
     case 'saveSet':DB.settings.doctor=val('sdoc');DB.settings.nurse=val('snurse');save();toast('Pengaturan tersimpan');return render();
     case 'backup':download('mitra911-cadangan-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(DB),'application/json');return toast('Cadangan diunduh');
     case 'csv':return csv();
@@ -1691,6 +1730,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#ov'))closeSheet();if(e.key==='Enter'&&e.target.matches('[data-open]'))go('detail',{id:e.target.dataset.open,tab:'ring'})});
 
+preloadSig();
 render();
 })();
 </script>
