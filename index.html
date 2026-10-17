@@ -386,7 +386,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.18-34';
+const APP_VERSION='v2026.10.18-35';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -1111,7 +1111,7 @@ const FTF_L={
  id:{title:'SURAT KETERANGAN MEDIS',subY:'Layak Terbang (Fit to Fly)',subN:'Belum Layak Terbang (Not Fit to Fly)',sPat:'Identitas Pasien',sExam:'Hasil Pemeriksaan',sSt:'Pernyataan Dokter',sFl:'Data Penerbangan',sReq:'Anjuran Selama Perjalanan',sRem:'Keterangan',exam:'Tanggal pemeriksaan',dx:'Diagnosis',vs:'Tanda vital',gc:'Keadaan umum',fd:'Tanggal terbang',fno:'No. penerbangan',route:'Rute / maskapai',noAs:'Tidak memerlukan bantuan khusus.',
   mr:'Tn.',ms:'Ny.'}
 };
-function ftfData(p){const f=p.ftfCert||{};return {st:f.st||(p.ftf&&p.ftf.st==='unfit'?'unfit':'fit'),exam:f.exam||Date.now(),fdate:f.fdate||'',fno:f.fno||'',route:f.route||'',as:f.as||[],until:f.until||'',valid:f.valid??72,note:f.note||'',nocd:f.nocd!==false}}
+function ftfData(p){const f=p.ftfCert||{};return {st:f.st||(p.ftf&&p.ftf.st==='unfit'?'unfit':'fit'),exam:f.exam||Date.now(),fdate:f.fdate||'',fno:f.fno||'',route:f.route||'',as:f.as||[],until:f.until||'',valid:f.valid??72,note:f.note||'',nocd:f.nocd!==false,doctor:f.doctor||'',vsId:f.vsId||'',vsMan:f.vsMan||{}}}
 function buildFtf(p,lang){
   const EN=lang==='en',T=(k,s)=>EN?trGet(p,k,s):s,L=Object.assign({},RL[lang]),F=FTF_L[lang],f=ftfData(p),i=p.identity,a=ageOf(p);
   const kvf=r=>r.filter(([k,v])=>v!=null&&String(v).trim()!==''),S=[],push=(h,kv)=>{const r=kvf(kv);if(r.length)S.push({h,kv:r,lv:1})};
@@ -1122,12 +1122,12 @@ function buildFtf(p,lang){
   push(F.sPat,[[L.mr,p.mr||''],[L.name,i.name],[L.sex,sexW],[i.dob?L.dob:L.age,dobAge],[L.nat,nat],[L.pass,i.passport&&!isNone(i.passport)?i.passport:'']]);
   const adv=p.advice.slice().sort((x,y)=>x.t-y.t),dxl=[];
   adv.forEach(x=>{const d=EN?T('adv.'+x.id+'.dx',x.dx):x.dx;if(d||x.icd){const t=(d||'')+(x.icd?` (ICD-10: ${x.icd})`:'');if(!dxl.includes(t))dxl.push(t)}});
-  const vs=p.vitals.slice().sort((x,y)=>x.t-y.t),vN=vs[vs.length-1];
+  const vs=p.vitals.slice().sort((x,y)=>x.t-y.t),vN=f.vsId==='manual'?(Object.values(f.vsMan).some(v=>v!==''&&v!=null)?{...f.vsMan,t:+new Date(f.exam)}:null):(f.vsId&&vs.find(v=>v.id===f.vsId))||vs[vs.length-1];
   const e=p.exam||{},gc=[lk(GC,e.gc,EN?1:2),lk(CONSC,e.consc,EN?1:2),gcsTot(e)!=null?'GCS '+gcsTot(e):''].filter(Boolean).join(', ');
   const ex=new Date(f.exam);
   push(F.sExam,[[F.exam,dLong(ex,lang)+', '+fTime(+ex)],[F.dx,dxl.join('; ')],[F.gc,gc],[F.vs,vN?vStr(vN,L)+' ('+fTime(vN.t)+(sameDay(vN.t,+ex)?'':', '+dLong(vN.t,lang))+')':'']]);
   const fl=[f.fno,f.route].filter(Boolean).join(', '),fdt=f.fdate?dLong(f.fdate,lang):'';
-  const dr=(sigFor(p.team?.doctor)||{}).name||(EN?drEn(p.team?.doctor):p.team?.doctor)||'';
+  const dN=f.doctor||p.team?.doctor||'',dr=(sigFor(dN)||{}).name||(EN?drEn(dN):dN)||'';
   let st;
   if(EN){
     st=`This is to certify that ${hon}${i.name}${i.passport&&!isNone(i.passport)?`, holder of passport no. ${i.passport},`:''} was examined by the undersigned physician on ${dLong(ex,'en')} at ${fTime(+ex)}.${f.nocd?' On examination, the patient shows no clinical signs of any communicable disease.':''}`;
@@ -1143,7 +1143,7 @@ function buildFtf(p,lang){
   push(F.sFl,[[F.fd,fdt],[F.fno,f.fno],[F.route,f.route]]);
   if(f.st==='fit'){const b=f.as.map(k=>lk(FTF_AS,k,EN?1:2)).filter(Boolean);S.push({h:F.sReq,bullets:b.length?b:[F.noAs],lv:1})}
   const note=EN?T('ftf.cert',f.note):f.note;if(note)S.push({h:F.sRem,text:note,lv:1});
-  const g=sigFor(p.team?.doctor);
+  const g=sigFor(dN);
   return {L,lang,mr:p.mr||'',ref:refNo(p),title:F.title,sub:f.st==='fit'?F.subY:F.subN,sections:S,...sigBlock(g),docName:(g||{}).name||'',docLic:(g||{}).lic||'',doctor:dr,place:'Yogyakarta',date:dLong(+ex,lang),
     fname:((f.st==='fit'?'Fit_to_Fly_':'Not_Fit_to_Fly_')+(p.mr?p.mr+'_':'')+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(+ex).toISOString().slice(0,10))};
 }
@@ -1155,11 +1155,14 @@ function ftfForm(p){const f=ftfData(p);
    <div class="fgrid"><div class="f"><label for="ft_exam">Waktu pemeriksaan</label><input id="ft_exam" data-ftf-f="exam" type="datetime-local" value="${toLocalInput(f.exam)}"></div>
     ${f.st==='fit'?`<div class="f"><label for="ft_valid">Berlaku (jam)</label><input id="ft_valid" data-ftf-f="valid" type="number" min="0" inputmode="numeric" value="${esc(f.valid)}"><span class="hint">Umumnya 72 jam; kosongkan bila tidak perlu.</span></div>`
      :`<div class="f"><label for="ft_until">Tidak terbang sebelum (opsional)</label><input id="ft_until" data-ftf-f="until" type="date" value="${esc(f.until)}"></div>`}</div>
+   <div class="f"><label for="ft_doc">Dokter pemeriksa</label><input id="ft_doc" data-ftf-f="doctor" list="ft_docs" value="${esc(f.doctor||p.team?.doctor||'')}" autocomplete="off"><datalist id="ft_docs">${[...new Set([...(DB.settings.signatures||[]).map(g=>g.name),DB.settings.doctor,p.team?.doctor].filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('')}</datalist><span class="hint">Bisa berbeda dari dokter kunjungan pertama. Tanda tangan mengikuti nama ini.</span></div>
+   <div class="f"><label for="ft_vs">Tanda vital yang dicantumkan</label><select id="ft_vs" data-ftf-f="vsId"><option value="">Terakhir tercatat${(()=>{const v=p.vitals.slice().sort((a,b)=>b.t-a.t)[0];return v?' ('+fTime(v.t)+')':''})()}</option>${p.vitals.slice().sort((a,b)=>b.t-a.t).map(v=>`<option value="${esc(v.id)}" ${f.vsId===v.id?'selected':''}>${fDate(v.t)} ${fTime(v.t)} · TD ${v.sbp||'–'}/${v.dbp||'–'}, N ${v.hr||'–'}, S ${v.temp||'–'}</option>`).join('')}<option value="manual" ${f.vsId==='manual'?'selected':''}>Isi manual (pemeriksaan untuk surat ini)</option></select>
+    ${f.vsId==='manual'?`<div class="fgrid" style="margin-top:8px;grid-template-columns:repeat(auto-fit,minmax(90px,1fr))">${[['sbp','TD sistolik'],['dbp','TD diastolik'],['hr','Nadi'],['rr','RR'],['temp','Suhu °C'],['spo2','SpO₂ %']].map(([k,l])=>`<div class="f"><label for="ftv_${k}">${l}</label><input id="ftv_${k}" data-ftf-v="${k}" inputmode="decimal" value="${esc(f.vsMan[k]??'')}"></div>`).join('')}</div><span class="hint">Jam TTV manual = waktu pemeriksaan di atas.</span>`:''}</div>
    <div class="fgrid"><div class="f"><label for="ft_fdate">Tanggal terbang</label><input id="ft_fdate" data-ftf-f="fdate" type="date" value="${esc(f.fdate)}"></div>
     <div class="f"><label for="ft_fno">No. penerbangan</label><input id="ft_fno" data-ftf-f="fno" value="${esc(f.fno)}" placeholder="mis. GA 205" autocomplete="off"></div>
     <div class="f"><label for="ft_route">Rute / maskapai</label><input id="ft_route" data-ftf-f="route" value="${esc(f.route)}" placeholder="mis. YIA → CGK → AMS, Garuda" autocomplete="off"></div></div>
    ${f.st==='fit'?`<div class="f"><label>Anjuran / bantuan khusus (kosongkan bila tidak perlu)</label><div class="chips">${FTF_AS.map(([k,,l])=>`<button type="button" class="chip ${f.as.includes(k)?'on':''}" data-ftfas="${k}">${esc(l)}</button>`).join('')}</div></div>`:''}
-   <label class="row" style="gap:8px;align-items:flex-start;font-size:13.5px"><input type="checkbox" id="ft_nocd" data-ftf-f="nocd" ${f.nocd?'checked':''} style="margin-top:3px"><span><b>Tidak ada tanda penyakit menular</b> — mencetak kalimat “no clinical signs of any communicable disease”. Hilangkan centang bila pasien demam/batuk/ruam yang dicurigai menular.</span></label>
+   <label class="row" style="gap:8px;align-items:flex-start;font-size:13.5px;flex-wrap:nowrap"><input type="checkbox" id="ft_nocd" data-ftf-f="nocd" ${f.nocd?'checked':''} style="margin-top:3px"><span><b>Tidak ada tanda penyakit menular</b> — mencetak kalimat “no clinical signs of any communicable disease”. Hilangkan centang bila pasien demam/batuk/ruam yang dicurigai menular.</span></label>
    <div class="f"><label for="ft_note">Keterangan tambahan (opsional, sebaiknya English)</label><textarea id="ft_note" data-ftf-f="note" rows="2" style="min-height:0" placeholder="mis. Pregnancy 30 weeks, uncomplicated; EDD 2 January 2027">${esc(f.note)}</textarea></div>
    <span class="hint">Data identitas, diagnosis, dan TTV terakhir diambil otomatis dari catatan pasien. Pasien yang butuh oksigen/tandu biasanya juga perlu formulir MEDIF dari maskapai.</span>
   </div>`;
@@ -1461,7 +1464,7 @@ function render(){
   if(v==='report'){const t=$('#rnote');t&&t.addEventListener('input',()=>{const p=getP(R.id);p.resumeNote=t.value;save();$('#repdoc').innerHTML=resumeHTML(curDoc(p))})}
   if(v==='report'){let tm;$$('[data-trkey]').forEach(t=>t.addEventListener('input',()=>{const p=getP(R.id);const f=trFields(p).find(x=>x.key===t.dataset.trkey);if(!f)return;p.en=p.en||{};
     if(t.value.trim())p.en[f.key]={src:f.src,en:t.value,edited:true};else delete p.en[f.key];save();clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(p))},300)}))}
-  if(v==='report'&&R.doc==='ftf'){let tm;$$('[data-ftf-f]').forEach(t=>{const h=()=>{const p=getP(R.id);if(!p)return;let x=t.type==='checkbox'?t.checked:t.value;if(t.dataset.ftfF==='exam')x=fromLocalInput(x)||Date.now();if(t.dataset.ftfF==='valid')x=x===''?0:Math.max(0,+x);ftfSet(p,t.dataset.ftfF,x);clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(getP(R.id)))},250)};t.addEventListener('input',h);t.addEventListener('change',h)})}
+  if(v==='report'&&R.doc==='ftf'){let tm;$$('[data-ftf-v]').forEach(t=>t.addEventListener('input',()=>{const p=getP(R.id);if(!p)return;const m={...ftfData(p).vsMan},x=t.value.replace(',','.').trim();m[t.dataset.ftfV]=x===''?'':(isNaN(+x)?x:+x);ftfSet(p,'vsMan',m);clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(getP(R.id)))},250)}));$$('[data-ftf-f]').forEach(t=>{const h=()=>{const p=getP(R.id);if(!p)return;let x=t.type==='checkbox'?t.checked:t.value;if(t.dataset.ftfF==='exam')x=fromLocalInput(x)||Date.now();if(t.dataset.ftfF==='valid')x=x===''?0:Math.max(0,+x);ftfSet(p,t.dataset.ftfF,x);if(t.dataset.ftfF==='vsId')return render();clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(getP(R.id)))},250)};t.addEventListener('input',h);t.addEventListener('change',h)})}
   if(v==='set'){const r=$('#restore');r&&r.addEventListener('change',restore);const sf=$('#stampFile');sf&&sf.addEventListener('change',stampUpload);const so=$('#stampOn');so&&so.addEventListener('change',()=>{DB.settings.stampOff=!so.checked;persist();toast(so.checked?'Cap akan dicetak':'Cap tidak dicetak')})}
   if(v==='detail'&&R.tab==='ttv'){const s=$('#monint');s&&s.addEventListener('change',()=>{MON.int=+s.value;if(MON.id){MON.next=Date.now()+MON.int*60000;MON.due=false}render()})}
 }
