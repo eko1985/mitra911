@@ -386,7 +386,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.18-35';
+const APP_VERSION='v2026.10.18-36';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -1090,7 +1090,7 @@ function withStamp(g){
 }
 /* mode tanda tangan di laporan: both = TTD + cap digital, stamp = cap saja (TTD basah), none = kosong (TTD & cap basah) */
 const SIGMODES=[['both','TTD + cap'],['stamp','Cap saja · TTD basah'],['none','Kosong · TTD & cap basah']];
-function stampOnly(){const st=DB.settings.stamp;if(!st||DB.settings.stampOff)return null;const si=imgOf(st.img);if(!si)return null;
+function stampOnly(){const st=DB.settings.stamp;if(!st)return null;const si=imgOf(st.img);if(!si)return null;
   const key='SO|'+st.img.length+'|'+st.img.slice(-60);let c=COMP.get(key);if(c)return c;
   const H=180,sh=H*.5,sw=sh*st.w/st.h,W=Math.round(sw*.66+H*2.2);
   const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
@@ -1385,7 +1385,7 @@ function vReport(){
   <div class="seg noprint" style="align-self:flex-start">${[['rep','Medical Report'],['ftf','Surat Fit to Fly']].map(([k,l])=>`<button class="${(FT?'ftf':'rep')===k?'on':''}" data-rdoc="${k}">${l}</button>`).join('')}</div>
   <div class="card pad noprint" style="display:flex;flex-direction:column;gap:14px">
    <div class="row between"><div class="row"><span class="eyebrow">Bahasa laporan</span><div class="seg">${[['en','English'],['id','Indonesia']].map(([k,l])=>`<button class="${lang===k?'on':''}" data-rlang="${k}">${l}</button>`).join('')}</div></div>
-    <div class="row"><span class="eyebrow">Tanda tangan</span><div class="seg">${SIGMODES.map(([k,l])=>`<button class="${(DB.settings.sigMode||'both')===k?'on':''}" data-sigmode="${k}">${l}</button>`).join('')}</div></div>
+    <div class="row"><span class="eyebrow">Tanda tangan</span><div class="seg">${SIGMODES.map(([k,l])=>`<button class="${(DB.settings.sigMode||'both')===k?'on':''}" data-sigmode="${k}">${l}</button>`).join('')}</div>${(DB.settings.sigMode||'both')==='stamp'&&!DB.settings.stamp?`<div class="newsbar" style="background:var(--warn-soft);width:100%"><span>Cap belum diunggah di perangkat ini, jadi yang tercetak hanya ruang kosong.</span><button class="btn sm" data-nav="set">Unggah cap</button></div>`:''}${(DB.settings.sigMode||'both')!=='both'?`<span class="xs muted" style="width:100%">Mode ini tersimpan untuk laporan berikutnya. Kembalikan ke “TTD + cap” bila ingin tanda tangan digital.</span>`:''}</div>
     <div class="row">${IN_FRAME?`<span class="xs muted">Ekspor Word & PDF aktif di aplikasi yang sudah dipasang.</span>`:`<button class="btn pri" data-act="docx">${ic('doc')}Word (.docx)</button><button class="btn go" data-act="pdf">${ic('install')}PDF</button><button class="btn" data-act="print">Cetak</button>`}</div></div>
    ${FT?'':`<div class="f"><label for="rnote">Catatan tambahan untuk laporan (opsional)</label><textarea id="rnote" placeholder="mis. Pasien disarankan kontrol ke dokter di negara asal; surat fit to fly diberikan.">${esc(p.resumeNote||'')}</textarea><span class="hint">Tersimpan otomatis dan muncul sebagai bagian “${RL[lang].s11}”.</span></div>`}
   </div>
