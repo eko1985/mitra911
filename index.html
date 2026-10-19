@@ -391,7 +391,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.19-48';
+const APP_VERSION='v2026.10.19-49';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -1041,10 +1041,15 @@ function buildResume(p,lang){
   const dobAge=[i.dob?dLong(i.dob,lang):'',a!=null?`${a} ${L.y}`:''].filter(Boolean).join(' / ');
   // rentang tanggal
   const allT=[p.createdAt,...vs.map(x=>x.t),...adv.map(x=>x.t),...acts.map(x=>x.t),...(p.meds||[]).map(x=>x.t),p.exam?.t,po?.t].filter(Boolean);
-  const lastT=Math.max(...allT);const multiDay=true;const tStamp=t=>(multiDay?new Date(t).toLocaleDateString(EN?'en-GB':'id-ID',{day:'numeric',month:'short'})+' ':'')+fTime(t);const dateRange=sameDay(lastT,p.createdAt)?dLong(p.createdAt,lang):dLong(p.createdAt,lang)+' – '+dLong(lastT,lang);
+  const lastT=Math.max(...allT);const multiDay=true;const tStamp=t=>(multiDay?new Date(t).toLocaleDateString(EN?'en-GB':'id-ID',{day:'numeric',month:'short'})+' ':'')+fTime(t);const visits=[];allT.slice().sort((a,b)=>a-b).forEach(t=>{const v=visits.find(v=>sameDay(v.s,t));if(v){v.e=Math.max(v.e,t)}else visits.push({s:t,e:t})});
+  const dJoin=ts=>{const ds=ts.map(t=>new Date(t)),same=ds.every(d=>d.getMonth()===ds[0].getMonth()&&d.getFullYear()===ds[0].getFullYear()),AND=EN?' and ':' dan ';
+    if(ts.length===1)return dLong(ts[0],lang);
+    if(same){const days=ds.map(d=>d.getDate());const ml=dLong(ts[0],lang).replace(/^\d+\s*/,'');return days.slice(0,-1).join(', ')+AND+days[days.length-1]+' '+ml}
+    const L2=ts.map(t=>dLong(t,lang));return L2.slice(0,-1).join(', ')+AND+L2[L2.length-1]};
+  const dateRange=dJoin(visits.map(v=>v.s));
   const docShown=(sigFor(p.team?.doctor)||{}).name||(EN?drEn(p.team?.doctor):p.team?.doctor)||'';
   push(L.s1,[[L.mr,p.mr||''],[L.name,i.name],[L.sex,i.sex?sexW:''],[i.dob?L.dob:L.age,dobAge],[L.nat,lang==='en'?String(countryEn(i.nationality)||'').replace(/^the /,''):i.nationality],[L.pass,hideNone(i.passport)],[L.hotel,hotelRoom],[L.phone,hideNone(i.phone)],[L.ins,hideNone(i.insurance)],[L.contact,hideNone(i.companion)],[L.lang,hideNone(i.lang)]]);
-  push(L.s2,[[L.dateR,dateRange],[L.arr,fTime(p.createdAt)+(sameDay(lastT,p.createdAt)?'':' ('+dLong(p.createdAt,lang)+')')],[L.end,endT?fTime(endT)+(sameDay(endT,p.createdAt)?'':' ('+dLong(endT,lang)+')'):''],[L.dur,endT?(lang==='en'?durEn(endT-p.createdAt):dur(endT-p.createdAt)):''],[L.doc,docShown],[L.nurse,p.team?.nurse||'']]);
+  push(L.s2,visits.length>1?[[L.dateR,dateRange],...visits.map((v,k)=>[(EN?'Visit ':'Kunjungan ')+(k+1),dLong(v.s,lang)+', '+fTime(v.s)+'–'+fTime(v.e)+(v.e>v.s?' ('+(EN?durEn(v.e-v.s):dur(v.e-v.s))+')':'')]),[L.doc,docShown],[L.nurse,p.team?.nurse||'']]:[[L.dateR,dateRange],[L.arr,fTime(p.createdAt)+(sameDay(lastT,p.createdAt)?'':' ('+dLong(p.createdAt,lang)+')')],[L.end,endT?fTime(endT)+(sameDay(endT,p.createdAt)?'':' ('+dLong(endT,lang)+')'):''],[L.dur,endT?(lang==='en'?durEn(endT-p.createdAt):dur(endT-p.createdAt)):''],[L.doc,docShown],[L.nurse,p.team?.nurse||'']]);
   // diagnosis (di atas)
   const dxl=[];adv.forEach(x=>{if(x.dx||x.icd){const t=(x.dx||'')+(x.icd?` (ICD-10: ${x.icd})`:'');if(!dxl.includes(t))dxl.push(t)}});
   if(dxl.length)S.push({h:L.sDx,text:dxl.length>1?dxl.map((d,k)=>(k+1)+'. '+d).join('\n'):dxl[0],lv:1,strong:true});
