@@ -386,7 +386,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.19-44';
+const APP_VERSION='v2026.10.19-45';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -1036,7 +1036,7 @@ function buildResume(p,lang){
   const dobAge=[i.dob?dLong(i.dob,lang):'',a!=null?`${a} ${L.y}`:''].filter(Boolean).join(' / ');
   // rentang tanggal
   const allT=[p.createdAt,...vs.map(x=>x.t),...adv.map(x=>x.t),...acts.map(x=>x.t),...(p.meds||[]).map(x=>x.t),p.exam?.t,po?.t].filter(Boolean);
-  const lastT=Math.max(...allT);const dateRange=sameDay(lastT,p.createdAt)?dLong(p.createdAt,lang):dLong(p.createdAt,lang)+' – '+dLong(lastT,lang);
+  const lastT=Math.max(...allT);const multiDay=true;const tStamp=t=>(multiDay?new Date(t).toLocaleDateString(EN?'en-GB':'id-ID',{day:'numeric',month:'short'})+' ':'')+fTime(t);const dateRange=sameDay(lastT,p.createdAt)?dLong(p.createdAt,lang):dLong(p.createdAt,lang)+' – '+dLong(lastT,lang);
   const docShown=(sigFor(p.team?.doctor)||{}).name||(EN?drEn(p.team?.doctor):p.team?.doctor)||'';
   push(L.s1,[[L.mr,p.mr||''],[L.name,i.name],[L.sex,i.sex?sexW:''],[i.dob?L.dob:L.age,dobAge],[L.nat,lang==='en'?String(countryEn(i.nationality)||'').replace(/^the /,''):i.nationality],[L.pass,hideNone(i.passport)],[L.hotel,hotelRoom],[L.phone,hideNone(i.phone)],[L.ins,hideNone(i.insurance)],[L.contact,hideNone(i.companion)],[L.lang,hideNone(i.lang)]]);
   push(L.s2,[[L.dateR,dateRange],[L.arr,fTime(p.createdAt)+(sameDay(lastT,p.createdAt)?'':' ('+dLong(p.createdAt,lang)+')')],[L.end,endT?fTime(endT)+(sameDay(endT,p.createdAt)?'':' ('+dLong(endT,lang)+')'):''],[L.dur,endT?(lang==='en'?durEn(endT-p.createdAt):dur(endT-p.createdAt)):''],[L.doc,docShown],[L.nurse,p.team?.nurse||'']]);
@@ -1050,7 +1050,7 @@ function buildResume(p,lang){
   const ex=p.exam;
   group(L.sObj,()=>{
     if(ex)push(L.sGC,[[L.gc,lk(GC,ex.gc,EN?1:2)],[L.consc,lk(CONSC,ex.consc,EN?1:2)],[L.gcs,gcsTot(ex)!=null?`E${ex.gcsE} V${ex.gcsV} M${ex.gcsM} = ${gcsTot(ex)}`:'']],2);
-    if(vs.length)S.push({h:L.sVS,lv:2,table:{head:[L.time,L.bp,L.hr,L.rr,L.temp,L.spo2,L.avpu,L.news],rows:vs.map(v=>[(sameDay(vs[0].t,vs[vs.length-1].t)?'':new Date(v.t).toLocaleDateString(EN?'en-GB':'id-ID',{day:'numeric',month:'short'})+' ')+fTime(v.t),isNum(v.sbp)?v.sbp+'/'+(v.dbp||'–'):'–',v.hr||'–',v.rr||'–',v.temp||'–',(v.spo2||'–')+(v.o2?' (O₂)':''),v.avpu||'–',news(v)&&['rr','spo2','sbp','hr','temp'].every(k=>isNum(v[k]))?String(news(v).total):'–'])},widths:[14,14,10,9,10,15,10,10]});
+    if(vs.length)S.push({h:L.sVS,lv:2,table:{head:[L.time,L.bp,L.hr,L.rr,L.temp,L.spo2,L.avpu,L.news],rows:vs.map(v=>[tStamp(v.t),isNum(v.sbp)?v.sbp+'/'+(v.dbp||'–'):'–',v.hr||'–',v.rr||'–',v.temp||'–',(v.spo2||'–')+(v.o2?' (O₂)':''),v.avpu||'–',news(v)&&['rr','spo2','sbp','hr','temp'].every(k=>isNum(v[k]))?String(news(v).total):'–'])},widths:[14,14,10,9,10,15,10,10]});
     if(ex)push(L.sPE,EXAM_SYS.map(([k,en,id,nen,nid])=>{const x=(ex.sys||{})[k];if(!x||!x.st)return ['',''];const note=T('ex.'+k,x.note);return [EN?en:id,note||(x.st==='n'?(EN?nen:nid):'')]}),2);
   });
   // TREATMENT
@@ -1065,11 +1065,11 @@ function buildResume(p,lang){
     const rx=adv.filter(x=>x.rx);if(rx.length)pushB(meds.length?L.sRxFree:'',rx.flatMap(x=>String(x.rx).split('\n')),2);
     const adj=(p.medAdj||[]).map(a=>`${lk(ADJ,a.action,EN?1:2)} ${a.drug}${(EN?T('ma.'+a.id+'.note',a.note):a.note)?' '+(EN?T('ma.'+a.id+'.note',a.note):a.note):''}.`.replace(/\.\.$/,'.'));
     pushB(L.sAdj,adj,2);
-    if(acts.length)S.push({h:L.s8,lv:2,table:{head:[L.time,L.proc,L.detail,L.by],rows:acts.map(x=>[fTime(x.t),(x.items||[]).join(', ')||'–',x.detail||'–',x.nurse||'–'])},widths:[11,30,43,16]});
+    if(acts.length)S.push({h:L.s8,lv:2,table:{head:[L.time,L.proc,L.detail,L.by],rows:acts.map(x=>[tStamp(x.t),(x.items||[]).join(', ')||'–',x.detail||'–',x.nurse||'–'])},widths:[multiDay?14:11,30,multiDay?40:43,16]});
   });
   // ADVICE & RECOMMENDATIONS
   const rc=p.recs||{},ft=p.ftf;
-  const advB=[...(rc.items||[]).map(k=>lk(RECS,k,EN?1:2)),...String(EN?T('rec.custom',rc.custom):rc.custom||'').split('\n'),
+  const advB=[...(rc.items||[]).map(k=>lk(RECS,k,EN?1:2)),...String((EN?T('rec.custom',rc.custom):rc.custom)||'').split('\n'),
     ...adv.filter(x=>x.plan).flatMap(x=>String(x.plan).split('\n')),...[...new Set(adv.map(x=>x.follow).filter(Boolean))].map(f=>(EN?'Follow-up: ':'Tindak lanjut: ')+f)];
   if(ft&&ft.st){const fn=EN?T('ftf.note',ft.note):ft.note;advB.push((ft.st==='fit'?L.ftfY:L.ftfN)+' '+(ft.date?dLong(ft.date,lang):'')+(fn?(ft.st==='fit'?' '+fn:'. '+fn):'')+'.')}
   pushB(L.sAdv,advB.map(x=>String(x).trim()).filter(Boolean),1);
