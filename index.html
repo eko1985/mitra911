@@ -386,7 +386,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.18-39';
+const APP_VERSION='v2026.10.18-42';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -711,7 +711,7 @@ function vDetail(){
    <div style="min-width:0"><div class="row" style="gap:8px">${statusPill(p)}${demoPill(p)}${i.allergy?`<span class="pill allergy">${ic('alert',13)}Alergi: ${esc(i.allergy)}</span>`:''}${p.status==='aktif'?newsChip(v):''}</div>
     <h1 style="margin-top:6px">${esc(i.name)}</h1>
     <div class="facts">${p.mr?`<span>No. RM <b class="mono">${esc(p.mr)}</b></span>`:''}<span>${flagOf(i.nationality)} <b>${esc(i.nationality||'–')}</b></span><span>Paspor <b class="mono">${esc(i.passport||'–')}</b></span><span><b>${a!=null?a+' th':'–'}</b> · ${i.sex==='L'?'Laki-laki':i.sex==='P'?'Perempuan':'–'}</span><span>${esc(i.hotel||'–')} · Kamar <b>${esc(i.room||'–')}</b></span><span>${ic('clock',13)} ${p.status==='aktif'?'<b data-since="'+p.createdAt+'">'+dur(Date.now()-p.createdAt)+'</b>':'Durasi <b>'+dur((p.outcome?.t||Date.now())-p.createdAt)+'</b>'}</span></div></div>
-   <div class="row acts">${p.status==='aktif'?`<button class="btn go" data-act="finish">${ic('check')}Selesaikan</button>`:`<button class="btn" data-act="reopen">Buka lagi</button>`}<button class="btn" data-act="report">${ic('doc')}Laporan Medis</button><button class="btn" data-act="ftfdoc">✈️ Fit to Fly</button><button class="btn" data-act="edit">${ic('edit')}Edit</button></div></div>
+   <div class="row acts">${p.status==='aktif'?`<button class="btn go" data-act="finish">${ic('check')}Selesaikan</button>`:`<button class="btn" data-act="reopen">Buka lagi</button>`}<button class="btn" data-act="report">${ic('doc')}Laporan Medis</button><button class="btn" data-act="ftfdoc">✈️ Fit to Fly</button><button class="btn" data-act="pasteNote">📋 Tempel catatan dokter</button><button class="btn" data-act="edit">${ic('edit')}Edit</button></div></div>
   <div class="tabs" role="tablist">${tabs.map(([k,l,c])=>`<button class="${R.tab===k?'on':''}" data-tab="${k}">${l}${c!==''?`<span class="cnt">${c}</span>`:''}</button>`).join('')}</div>
   ${body}`;
 }
@@ -945,7 +945,7 @@ const RL={
   first:'Initial',last:'Latest',proc:'Procedure',detail:'Details',by:'By',instr:'Instructions',follow:'Follow-up',
   outcome:'Outcome',dest:'Destination facility',fnote:'Final note',under:'The patient remains under care.',uhr:'bpm',urr:'breaths/min',notRec:'Not recorded',
   signDoc:'Attending Physician',signNurse:'Nurse',none:'None known',male:'Male',female:'Female',y:'years',
-  gen:'Examination performed by the attending physician under their practice licence. Mitra 911 · On-call & Home Care Services',lic:'License Number:',page:'Page',of:'of',noData:'—',
+  gen:'Examination performed by the attending physician under their practice license. Mitra 911 · On-call & Home Care Services',lic:'License Number:',page:'Page',of:'of',noData:'—',
   out:{hotel:'Treated at hotel / improved',rujuk:'Referred to hospital',evak:'Medical evacuation',tolak:'Refused treatment (against medical advice)',lain:'Other'}},
  id:{title:'LAPORAN PEMERIKSAAN MEDIS',sub:'Medical Report',ref:'No. Ref.',
   sDx:'Diagnosis',sSubj:'Subjektif',sObj:'Objektif',sGC:'Keadaan Umum',sVS:'Tanda-Tanda Vital',sPE:'Pemeriksaan Fisik',sTx:'Terapi & Obat',sAdj:'Penyesuaian Obat Rutin',sRxFree:'Terapi Tambahan',sAdv:'Saran & Rekomendasi',mr:'No. Rekam Medis',contact:'Kontak darurat',gc:'Keadaan umum',consc:'Kesadaran',gcs:'GCS',allergyD:'Alergi obat',histP:'Riwayat penyakit',medsC:'Obat rutin',oral:'Obat Oral',inj:'Terapi Intravena (IV) & Injeksi',oth:'Obat Lain',initial:'Awal',fu:'Lanjutan',given:'diberikan pukul',ftfY:'Fit to Fly: Pasien dinyatakan layak terbang (fit to fly) pada',ftfN:'Fit to Fly: Pasien belum layak terbang per',dateR:'Tanggal',
@@ -1096,7 +1096,7 @@ function stampOnly(){const st=DB.settings.stamp;if(!st)return null;const si=imgO
   const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
   x.save();x.globalAlpha=.9;x.translate(4+sw/2,H*.4);x.rotate(-3*Math.PI/180);x.drawImage(si,-sw/2,-sh/2,sw,sh);x.restore();
   c={img:cv.toDataURL('image/png'),w:W,h:H};COMP.set(key,c);return c}
-function sigBlock(g){const nb=!!DB.settings.nameBlank;const r=sigBlock0(g);if(nb){r.docHide=false;r.nameBlank=true}return r}
+function sigBlock(g){const nb=!!DB.settings.nameBlank;const r=sigBlock0(g);if(nb){r.docHide=false;r.nameBlank=true}r.noLine=nb||(DB.settings.sigMode==='stamp');return r}
 function sigBlock0(g){const m=DB.settings.sigMode||'both';
   if(m==='none')return {docSig:null,docHide:false,wet:true};
   if(m==='stamp')return {docSig:stampOnly(),docHide:false,wet:true};
@@ -1112,6 +1112,102 @@ function unglueNames(){
   (DB.settings.signatures||[]).forEach(g=>{const f=fix(g.name);if(f!==g.name){g.name=f;ch=true}});
   DB.patients.forEach(p=>{if(p.ftfCert&&p.ftfCert.doctor){const f=fix(p.ftfCert.doctor);if(f!==p.ftfCert.doctor){p.ftfCert.doctor=f;ch=true}}});
   if(ch){save();COMP.clear()}
+}
+/* ---------- tempel catatan dokter (format SOAP WhatsApp) ---------- */
+const BRAND=[[/neuro\s*san\s*be/i,'Vitamin B1, B6, B12 (Neurosanbe)'],[/neurobion/i,'Vitamin B1, B6, B12 (Neurobion)'],[/degirol/i,'Dequalinium chloride 0.25 mg lozenge (Degirol)'],[/tremenza/i,'Pseudoephedrine 60 mg + Triprolidine 2.5 mg (Tremenza)'],[/rhinos\b/i,'Pseudoephedrine + Loratadine (Rhinos)'],[/sanmol|panadol|pamol/i,'Paracetamol'],[/buscopan/i,'Hyoscine butylbromide (Buscopan)'],[/new\s*diatabs/i,'Attapulgite (New Diatabs)'],[/imodium/i,'Loperamide (Imodium)'],[/lacto\s*b/i,'Probiotic (Lacto-B)'],[/oralit/i,'Oral rehydration salts (ORS)'],[/antimo/i,'Dimenhydrinate (Antimo)'],[/mylanta|promag/i,'Antacid'],[/vometa|motilium/i,'Domperidone'],[/ondan\w*/i,'Ondansetron'],[/(n[\s-]*)?a[sc]etyl\s*s[iy]st?e?in\w*|n[\s-]*acetylcyste?ine|\bnac\b/i,'N-Acetylcysteine'],[/metil\s*predni\w*|methyl\s*predni\w*/i,'Methylprednisolone'],[/d[iy]menh[iy]dr[iy]nat\w*/i,'Dimenhydrinate'],[/parasetamol/i,'Paracetamol'],[/amoks[iy]s[iy]lin/i,'Amoxicillin'],[/omeprazol\b/i,'Omeprazole'],[/lansoprazol\b/i,'Lansoprazole'],[/ranitidin\b/i,'Ranitidine'],[/cetiri[sz]in\b/i,'Cetirizine'],[/loratadin\b/i,'Loratadine'],[/loperamid\b/i,'Loperamide'],[/domperidon\b/i,'Domperidone'],[/asam\s*mefenamat/i,'Mefenamic acid'],[/deksametason|dexametason/i,'Dexamethasone'],[/c[iy]profloksas[iy]n/i,'Ciprofloxacin'],[/metronidazol\b/i,'Metronidazole'],[/sukralfat/i,'Sucralfate'],[/antasida/i,'Antacid'],[/sefiksim/i,'Cefixime'],[/azitromisin/i,'Azithromycin'],[/salbutamol/i,'Salbutamol'],[/ambroksol/i,'Ambroxol']];
+const ICD_GUESS=[[/pharyng|faring|throat|tenggorok|tonsil/i,'J02.9'],[/gastroenteritis|\bgea\b|diare|diarr/i,'A09'],[/dehidra|dehydra/i,'E86'],[/dispeps|dyspeps/i,'K30'],[/gastritis/i,'K29.7'],[/dengue|dbd/i,'A90'],[/ispa|urti|upper respiratory|common cold|rhinit|nasofaring/i,'J06.9'],[/febris|fever|demam/i,'R50.9'],[/vertigo/i,'R42'],[/pneumon/i,'J18.9'],[/hipertensi|hypertension/i,'I10'],[/migrain|migraine/i,'G43.9'],[/cephalg|headache|sakit kepala/i,'R51'],[/myalg/i,'M79.1'],[/sprain|keseleo|terkilir/i,'T14.3'],[/vulnus|laceration|luka robek/i,'T14.1'],[/urtikaria|urticaria|alergi|allerg/i,'T78.4'],[/isk|urinary tract|uti\b/i,'N39.0'],[/sunburn/i,'L55.9'],[/heat exhaust/i,'T67.5']];
+const REC_MAP=[[/minum obat|obat .*teratur|sesuai (resep|anjuran)/i,'meds',null],[/air putih|minum|cairan|hidrasi|fluid/i,'fluids',null],[/istirahat|rest\b/i,'rest',null],[/cuci tangan|kebersihan|hygien/i,'hygiene',null],[/alkohol|alcohol/i,'noalcohol',null],[/matahari|sun/i,'sun',null],[/lunak|pedas|berlemak|bland/i,'diet',null],[/kontrol .*(negara|pulang)|dokter .*negara asal/i,'gp',null],[/memberat|perburukan|igd|worse/i,'return',null],[/nutrisi|asupan makan|makan .*(baik|bergizi|teratur)|nutrition/i,null,'Maintain adequate nutrition.'],[/aktivitas|aktifitas|activit|mobilisasi/i,null,'Gradually resume light activities.'],[/bangun .*perlahan|perlahan .*bangun|ubah posisi/i,null,'Change position slowly (e.g. when getting out of bed).']];
+function parseNote(txt){
+  const out={date:'',dx:'',subj:'',obj:[],vs:{},meds:[],edu:[],ftf:false,name:'',pass:'',age:'',nat:''};
+  const lines=String(txt||'').replace(/\r/g,'').split('\n');
+  const H=[['date',/^(date|tanggal|tgl)\b/i],['place',/^(place|tempat|lokasi|hotel)\b/i],['cp',/^(cp|contact)\b/i],['name',/^(name|nama)\b/i],['age',/^(age|usia|umur)\b/i],['nat',/^(nationality|negara|kewarganegaraan|country)\b/i],['pass',/^(number id|id number|no\.? ?id|passport|paspor|no\.? paspor)\b/i],['dx',/^(diagnos[ai]s?|dx|assessment|a)\s*[:：]/i],['subj',/^(subjective|subjektif|s)\s*[:：]/i],['obj',/^(objective|objektif|o)\s*[:：]/i],['tx',/^(treatment|terapi|therapy|tx|p|plan|rx|resep)\s*[:：]/i],['edu',/^(edukasi|education|advice|saran|anjuran|kie)\b/i]];
+  let sec='';
+  for(let raw of lines){const ln=raw.trim();if(!ln)continue;
+    const h=H.find(([k,re])=>re.test(ln));let rest=ln;
+    if(h){sec=h[0];rest=ln.replace(/^[^:：]*[:：]?/,'').trim();if(!/[:：]/.test(ln))rest='';}
+    if(!rest)continue;
+    const item=rest.replace(/^[-•*·]\s*/,'').trim();
+    if(sec==='date')out.date=rest;else if(sec==='name')out.name=rest;else if(sec==='pass')out.pass=rest;else if(sec==='age')out.age=rest;else if(sec==='nat')out.nat=rest;
+    else if(sec==='dx')out.dx=(out.dx?out.dx+'; ':'')+item;
+    else if(sec==='subj')out.subj+=(out.subj?' ':'')+item;
+    else if(sec==='obj'){if(/^(vs|ttv|tanda vital|vital)/i.test(item)||/\bTD\b|\bBP\b|spo2/i.test(item))out.vs=parseVS(item);else out.obj.push(item)}
+    else if(sec==='tx'){const m=parseRx(item);if(m)out.meds.push(m)}
+    else if(sec==='edu'){if(/fit\s*to\s*fly|layak terbang/i.test(item))out.ftf=true;else out.edu.push(item)}
+  }
+  const d=out.date.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);if(d){const y=d[3].length===2?'20'+d[3]:d[3];out.dateISO=`${y}-${pad(+d[2])}-${pad(+d[1])}`}
+  out.icd=(ICD_GUESS.find(([re])=>re.test(out.dx))||[])[1]||'';if(out.icd&&!ICD.some(c=>c[0]===out.icd))out.icd='';
+  out.recs=[];out.custom=[];out.plan=[];
+  out.edu.forEach(e=>{const m=REC_MAP.find(([re])=>re.test(e));if(m){if(m[1]&&!out.recs.includes(m[1]))out.recs.push(m[1]);if(m[2]&&!out.custom.includes(m[2]))out.custom.push(m[2])}else out.plan.push(e)});
+  return out;
+}
+function parseVS(s){const v={},n=x=>x==null?'':String(x).replace(',','.');
+  let m=s.match(/(?:TD|BP|tensi)?\s*[:=]?\s*(\d{2,3})\s*\/\s*(\d{2,3})/i);if(m){v.sbp=m[1];v.dbp=m[2]}
+  m=s.match(/(?:\bN\b|nadi|\bHR\b|pulse)\s*[:=]?\s*(\d{2,3})/i);if(m)v.hr=m[1];
+  m=s.match(/(?:\bRR\b|\bR\b|resp\w*|napas)\s*[:=]?\s*(\d{1,2})/i);if(m)v.rr=m[1];
+  const xs=[...s.replace(/\d{2,3}\s*\/\s*\d{2,3}/,'').matchAll(/(\d{1,3})\s*x\s*\/?\s*(?:m\b|mnt|menit|min)/gi)].map(a=>a[1]);
+  if(!v.hr&&xs[0])v.hr=xs[0];if(!v.rr&&xs.length>1)v.rr=xs[1];
+  m=s.match(/(?:\bS\b|suhu|\bT\b|temp\w*)\s*[:=]?\s*(\d{2}(?:[.,]\d)?)/i)||s.match(/(\d{2}[.,]\d)\s*°?\s*C/i);if(m)v.temp=n(m[1]);
+  m=s.match(/spo2?\s*[:=]?\s*(\d{2,3})/i)||s.match(/(\d{2,3})\s*%/);if(m)v.spo2=m[1];
+  return v}
+function parseRx(s){if(!s)return null;
+  let freq='',prn=/\bprn\b|bila perlu|jika perlu|k\/p|kalau perlu|as needed/i.test(s),x=null;
+  const sg=s.match(/\bs\.?\s*(\d)\s*d\.?\s*d\.?\s*(\d+(?:[.,]\d+)?|½|1\/2)/i)||s.match(/\b(\d)\s*x\s*(\d+(?:[.,]\d+)?|½|1\/2)\b/i)||s.match(/\b(\d)\s*dd\s*(\d+)/i);
+  if(sg){x=+sg[1];freq=prn?'prn':(x>=1&&x<=4?x+'x1':'')}else if(prn)freq='prn';
+  let name=s.replace(/\bs\.?\s*\d\s*d\.?\s*d\.?\s*\S+/ig,'').replace(/\b\d\s*x\s*\d+(?:[.,]\d+)?\b/ig,'').replace(/\bprn\b|bila perlu|jika perlu|kalau perlu|k\/p/ig,'').replace(/\s{2,}/g,' ').trim().replace(/[,;.\-]+$/,'');
+  const dm=name.match(/(\d+(?:[.,]\d+)?\s*(?:mg|mcg|µg|g|ml|iu|%|tab(?:let)?|caps?|sachet|puff|tetes|drops?))\b/i);
+  let dose=dm?dm[1].replace(',','.').replace(/\s+/,' '):'';if(dm)name=name.replace(dm[0],'').replace(/\s{2,}/g,' ').trim();
+  const b=BRAND.find(([re])=>re.test(name));const orig=name;if(b){name=b[1];if(/\d/.test(b[1])&&/mg/.test(dose)&&b[1].includes(dose))dose=''}
+  let route='PO';if(/tetes mata|eye drop|\bed\b/i.test(s))route='OPH';else if(/salep|krim|cream|gel|topikal|oles/i.test(s))route='TOP';else if(/nebul|inhal/i.test(s))route='INH';else if(/\binj|\biv\b/i.test(s))route='IV';else if(/\bim\b/i.test(s))route='IM';else if(/sublingual|\bsl\b/i.test(s))route='SL';else if(/lozenge|degirol|hisap/i.test(s+name))route='PO';
+  const note=[prn&&x?`max ${x}x daily`:'',/lozenge|degirol|hisap/i.test(s+name)?'dissolve in the mouth':''].filter(Boolean).join('; ');
+  return {name,orig,dose,route,freq,note,on:true}}
+function noteSheet(p){
+  let P=null;
+  const draw=()=>{const box=$('#np_prev');if(!box)return;if(!P){box.innerHTML='';return}
+    const opt=(arr,v,i)=>`<option value="">–</option>`+arr.map(a=>`<option value="${a[0]}" ${a[0]===v?'selected':''}>${esc(a[i])}</option>`).join('');
+    const warn=[];const pn=(p.identity.name||'').toLowerCase().replace(/[^a-z]/g,''),nn=P.name.toLowerCase().replace(/^(mrs?|ms|miss|tn|ny|nn|sdr)\.?\s*/,'').replace(/[^a-z]/g,'');
+    if(nn&&pn&&!pn.includes(nn)&&!nn.includes(pn))warn.push(`Nama di catatan (<b>${esc(P.name)}</b>) berbeda dengan pasien ini (<b>${esc(p.identity.name)}</b>).`);
+    if(P.pass&&p.identity.passport&&P.pass.replace(/\s/g,'').toUpperCase()!==p.identity.passport.replace(/\s/g,'').toUpperCase())warn.push(`No. paspor berbeda: ${esc(P.pass)} vs ${esc(p.identity.passport)}.`);
+    const v=P.vs;
+    box.innerHTML=`${warn.length?`<div class="newsbar" style="background:var(--warn-soft)"><span>⚠️ ${warn.join(' ')}</span></div>`:''}
+    <div class="fgrid"><div class="f"><label for="np_t">Waktu pemeriksaan</label><input id="np_t" type="datetime-local" value="${toLocalInput(P.t)}"></div>
+     <div class="f"><label for="np_doc">Dokter</label><input id="np_doc" value="${esc(P.doc)}"></div></div>
+    <h3 style="margin:4px 0 0">Tanda vital</h3>
+    <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(80px,1fr))">${[['sbp','TD sis'],['dbp','TD dia'],['hr','Nadi'],['rr','RR'],['temp','Suhu'],['spo2','SpO₂']].map(([k,l])=>`<div class="f"><label for="npv_${k}">${l}</label><input id="npv_${k}" inputmode="decimal" value="${esc(v[k]||'')}"></div>`).join('')}</div>
+    ${!v.rr?'<span class="hint" style="color:var(--warn)">RR tidak ada di catatan — isi bila diketahui.</span>':''}
+    <h3 style="margin:4px 0 0">Diagnosis</h3>
+    <div class="fgrid"><div class="f"><label for="np_dx">Diagnosis</label><input id="np_dx" value="${esc(P.dx)}"></div><div class="f"><label for="np_icd">ICD-10</label><input id="np_icd" list="icdlist2" value="${esc(P.icd)}" autocomplete="off"><datalist id="icdlist2">${ICD.map(([c,l])=>`<option value="${c} — ${esc(l)}">`).join('')}</datalist></div></div>
+    <h3 style="margin:4px 0 0">Obat (${P.meds.length})</h3>
+    ${P.meds.map((m,k)=>`<div class="card pad" style="display:flex;flex-direction:column;gap:8px;padding:10px">
+      <label class="row" style="gap:8px;flex-wrap:nowrap"><input type="checkbox" id="npm_on${k}" ${m.on?'checked':''}><span class="xs muted">Dari catatan: “${esc(m.orig)}”</span></label>
+      <div class="fgrid"><div class="f"><label for="npm_name${k}">Nama obat</label><input id="npm_name${k}" value="${esc(m.name)}"></div><div class="f"><label for="npm_dose${k}">Dosis</label><input id="npm_dose${k}" value="${esc(m.dose)}"></div></div>
+      <div class="fgrid"><div class="f"><label for="npm_route${k}">Rute</label><select id="npm_route${k}">${opt(ROUTES,m.route,2)}</select></div><div class="f"><label for="npm_freq${k}">Frekuensi</label><select id="npm_freq${k}">${opt(FREQS,m.freq,2)}</select></div><div class="f"><label for="npm_note${k}">Keterangan</label><input id="npm_note${k}" value="${esc(m.note)}"></div></div></div>`).join('')||'<span class="xs muted">Tidak ada obat terbaca.</span>'}
+    <h3 style="margin:4px 0 0">Edukasi & rekomendasi</h3>
+    <div class="xs">${P.recs.map(k=>'✓ '+esc(lk(RECS,k,2))).concat(P.custom.map(c=>'✓ '+esc(c))).join('<br>')||'<span class="muted">–</span>'}</div>
+    <div class="f"><label for="np_plan">Instruksi lain (masuk ke advice)</label><textarea id="np_plan" rows="2" style="min-height:0">${esc(P.plan.join('\n'))}</textarea></div>
+    <label class="row" style="gap:8px;flex-wrap:nowrap;font-size:13.5px"><input type="checkbox" id="np_ftf" ${P.ftf?'checked':''}><span><b>Fit to Fly</b> — tandai layak terbang (data surat Fit to Fly ikut terisi: dokter, waktu & TTV ini)</span></label>
+    <h3 style="margin:4px 0 0">Catatan pemeriksaan (masuk ke Tindakan)</h3>
+    <div class="f"><textarea id="np_so" rows="4">${esc(P.so)}</textarea></div>`};
+  sheet('Tempel catatan dokter',`
+   <div class="f"><label for="np_txt">Tempel catatan dokter dari WhatsApp</label><textarea id="np_txt" rows="7" placeholder="date: 18/10/2026&#10;Diagnosis : ...&#10;Subjective : ...&#10;Objective:&#10;- VS : TD 120/80mmHg, 80x/m, S 36.8 C, SpO2 98%&#10;Treatment:&#10;- Paracetamol 500mg s3dd1&#10;Edukasi&#10;- ..."></textarea></div>
+   <div class="row"><button type="button" class="btn pri" id="np_read">Baca catatan</button><span class="xs muted">Periksa hasilnya sebelum disimpan.</span></div>
+   <div id="np_prev" style="display:flex;flex-direction:column;gap:10px"></div>`,()=>{
+     if(!P){toast('Tekan “Baca catatan” dulu');return false}
+     const lp=getP(p.id)||p,t=fromLocalInput(val('np_t'))||Date.now(),doc=val('np_doc');
+     const vs={};['sbp','dbp','hr','rr','temp','spo2'].forEach(k=>{const x=val('npv_'+k).replace(',','.');if(x)vs[k]=x});
+     let vid='';if(Object.keys(vs).length){vid=uid();lp.vitals.push({id:vid,t,sbp:vs.sbp||'',dbp:vs.dbp||'',hr:vs.hr||'',rr:vs.rr||'',temp:vs.temp||'',spo2:vs.spo2||'',gds:'',pain:'',o2:false,avpu:'A',note:'Follow-up'})}
+     const dx=val('np_dx'),icd=val('np_icd').split(/\s|—/)[0].toUpperCase(),plan=val('np_plan');
+     if(dx||icd||plan)lp.advice.push({id:uid(),t,doctor:doc,dx,icd,rx:'',plan,follow:''});
+     lp.meds=lp.meds||[];P.meds.forEach((m,k)=>{if(!$('#npm_on'+k).checked)return;const nm=val('npm_name'+k);if(!nm)return;lp.meds.push({id:uid(),t,name:nm,dose:val('npm_dose'+k),route:val('npm_route'+k),freq:val('npm_freq'+k),qty:'',note:val('npm_note'+k)})});
+     const so=val('np_so');if(so)lp.actions.push({id:uid(),t,nurse:lp.team?.nurse||DB.settings.nurse||'',items:['Pemeriksaan fisik'],detail:so});
+     if(P.recs.length||P.custom.length){const r=lp.recs||{items:[],custom:''};const it=new Set(r.items||[]);P.recs.forEach(k=>it.add(k));const cu=(r.custom||'').split('\n').map(s=>s.trim()).filter(Boolean);P.custom.forEach(c=>{if(!cu.includes(c))cu.push(c)});lp.recs={items:[...it],custom:cu.join('\n')}}
+     if($('#np_ftf').checked){const f=ftfData(lp);Object.assign(f,{st:'fit',exam:t,doctor:doc,vsId:vid||f.vsId});lp.ftfCert=f;lp.ftf={st:'fit',date:new Date(t).toISOString().slice(0,10),note:(lp.ftf&&lp.ftf.note)||''}}
+     save();toast('Catatan dokter tersimpan — cek & terjemahkan di Laporan Medis');render()},'Simpan semua');
+  $('#np_read').addEventListener('click',()=>{const txt=$('#np_txt').value;if(!txt.trim()){toast('Tempel catatan dulu');return}
+    const r=parseNote(txt);const now=new Date();
+    let t=Date.now();if(r.dateISO){const tm=r.dateISO===new Date().toISOString().slice(0,10)?toLocalInput(Date.now()).slice(11):'12:00';t=fromLocalInput(r.dateISO+'T'+tm)||t}
+    const so=[r.subj?'S: '+r.subj:'',r.obj.length?'O: '+r.obj.join('; '):''].filter(Boolean).join('\n');
+    P={...r,t,doc:(p.ftfCert&&p.ftfCert.doctor)||p.team?.doctor||DB.settings.doctor||'',so};draw();
+    $('#np_prev').scrollIntoView({behavior:'smooth',block:'start'})});
 }
 /* ---------- surat Fit to Fly ---------- */
 const FTF_AS=[['wchr','Wheelchair assistance at the airport (WCHR)','Bantuan kursi roda di bandara (WCHR)'],['comp','Should travel with a companion','Sebaiknya didampingi pendamping'],['medesc','Medical escort required during the flight','Perlu pendamping medis selama penerbangan'],['o2','Supplemental oxygen during the flight (airline MEDIF form required)','Oksigen tambahan selama penerbangan (perlu formulir MEDIF maskapai)'],['aisle','Aisle seat near the lavatory','Kursi lorong dekat toilet'],['leg','Extra legroom / able to elevate the leg','Ruang kaki ekstra / kaki dapat ditinggikan'],['meds','Prescribed medications to be carried in hand luggage','Obat resep dibawa di bagasi kabin'],['hydr','Maintain good hydration and mobilise regularly during the flight','Cukup minum dan rutin bergerak selama penerbangan']];
@@ -1140,7 +1236,7 @@ function buildFtf(p,lang){
   const dN=f.doctor||p.team?.doctor||'',dr=(sigFor(dN)||{}).name||(EN?drEn(dN):dN)||'';
   let st;
   if(EN){
-    st=`This is to certify that ${hon}${i.name}${i.passport&&!isNone(i.passport)?`, holder of passport no. ${i.passport},`:''} was examined by the undersigned physician on ${dLong(ex,'en')} at ${fTime(+ex)}.${f.nocd?' On examination, the patient shows no clinical signs of any communicable disease.':''}`;
+    st=`This is to certify that ${hon}${i.name}${i.passport&&!isNone(i.passport)?`, holder of passport no. ${i.passport},`:''} was examined by the undersigned physician on ${dLong(ex,'en')} at ${fTime(+ex)}.${f.nocd?' On examination, the patient showed no clinical signs of any communicable disease.':''}`;
     st+=f.st==='fit'?`\n\nBased on the clinical findings, the patient is currently in a stable condition and is medically fit to travel by commercial air${fl||fdt?` on ${[fl?'flight '+fl:'',fdt?(fl?'on ':'')+fdt:''].filter(Boolean).join(' ')}`:''}.`
       :`\n\nBased on the clinical findings, the patient is currently not medically fit to travel by air${f.until?` and is advised not to fly before ${dLong(f.until,'en')}, subject to re-evaluation by a physician`:' until further medical evaluation'}.`;
   }else{
@@ -1192,7 +1288,7 @@ function resumeHTML(R){
       s.bullets?`<ul class="rep-ul">${s.bullets.map(b=>`<li>${esc(b)}</li>`).join('')}</ul>`:
       `<p${s.strong?' style="font-weight:700"':''}>${esc(s.text)}</p>`;
      return `<div class="rep-sec${s.lv===2?' sub':''}">${hd}${body}</div>`}).join('')}
-   <div class="sign"><div class="sgap"></div><div>${esc(R.place)}, ${esc(R.date)}<br>${R.L.signDoc}<div class="sigbox">${R.docSig?`<img src="${R.docSig.img}" alt="Tanda tangan ${esc(R.doctor)}">`:''}</div>${R.nameBlank?`<div class="ln" style="font-weight:400;color:var(--mut)">${'('+'.'.repeat(46)+')'}</div><div class="xs" style="color:var(--mut)">${R.L.lic} ${'.'.repeat(34)}</div>`:R.docHide&&R.docSig?'':`<div class="ln">${esc(R.docName||R.doctor)}</div>${R.docLic?`<div class="xs">${R.L.lic} ${esc(R.docLic)}</div>`:''}`}</div></div>
+   <div class="sign"><div class="sgap"></div><div>${esc(R.place)}, ${esc(R.date)}<br>${R.L.signDoc}<div class="sigbox">${R.docSig?`<img src="${R.docSig.img}" alt="Tanda tangan ${esc(R.doctor)}">`:''}</div>${R.nameBlank?`<div class="ln" style="font-weight:400;color:var(--mut);border-top:0">${'('+'.'.repeat(46)+')'}</div><div class="xs" style="color:var(--mut)">${R.L.lic} ${'.'.repeat(34)}</div>`:R.docHide&&R.docSig?'':`<div class="ln"${R.noLine?' style="border-top:0"':''}>${esc(R.docName||R.doctor)}</div>${R.docLic?`<div class="xs">${R.L.lic} ${esc(R.docLic)}</div>`:''}`}</div></div>
    <div class="xs muted" style="text-align:center;margin-top:24px;max-width:60ch;margin-inline:auto">${R.L.gen}<br><b style="color:var(--navy)">${esc(CONTACT)}</b></div>`;
 }
 
@@ -1379,8 +1475,8 @@ async function exportPdf(R){
   const c1=M+(W-2*M)/4,c2=M+3*(W-2*M)/4;
   doc.text(T(R.place+', '+R.date),c2,y,{align:'center'});doc.text(T(R.L.signDoc),c2,y+5,{align:'center'});
   if(R.docSig){let sh=17,sw=sh*R.docSig.w/R.docSig.h;if(sw>86){sw=86;sh=sw*R.docSig.h/R.docSig.w}doc.addImage(R.docSig.img,'PNG',c2-sw/2,y+24-sh,sw,sh)}
-  if(R.nameBlank){doc.setDrawColor(13,26,51);doc.setLineWidth(.3);doc.line(c2-34,y+25,c2+34,y+25);doc.setFont('helvetica','normal');doc.setTextColor(90,105,135);doc.text('('+'.'.repeat(60)+')',c2,y+32,{align:'center'});doc.setFontSize(9);doc.text(T(R.L.lic)+' '+'.'.repeat(44),c2,y+38,{align:'center'});doc.setTextColor(13,26,51)}
-  else{if(!(R.docHide&&R.docSig)){doc.setDrawColor(13,26,51);doc.setLineWidth(.3);doc.line(c2-34,y+25,c2+34,y+25);
+  if(R.nameBlank){doc.setFont('helvetica','normal');doc.setTextColor(90,105,135);doc.text('('+'.'.repeat(60)+')',c2,y+32,{align:'center'});doc.setFontSize(9);doc.text(T(R.L.lic)+' '+'.'.repeat(44),c2,y+38,{align:'center'});doc.setTextColor(13,26,51)}
+  else{if(!(R.docHide&&R.docSig)){if(!R.noLine){doc.setDrawColor(13,26,51);doc.setLineWidth(.3);doc.line(c2-34,y+25,c2+34,y+25)}
   doc.setFont('helvetica','bold');doc.text(T(R.docName||R.doctor),c2,y+30,{align:'center'});}
   if(R.docLic&&!(R.docHide&&R.docSig)){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(T(R.L.lic+' '+R.docLic),c2,y+35,{align:'center'})}}
   const n=doc.getNumberOfPages();
@@ -1712,6 +1808,7 @@ document.addEventListener('click',e=>{
     case 'edit':return go('form',{id:R.id});
     case 'report':return go('report',{id:R.id,doc:''});
     case 'ftfdoc':return go('report',{id:R.id,doc:'ftf'});
+    case 'pasteNote':return noteSheet(p);
     case 'print':return window.print();
     case 'trAuto':return translatePatient(p,false);
     case 'trForce':return translatePatient(p,true);
