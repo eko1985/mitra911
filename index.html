@@ -391,7 +391,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.19-47';
+const APP_VERSION='v2026.10.19-48';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -947,7 +947,7 @@ const SERVER_CODE="/**\n * MITRA 911 ONCALL \u2014 Server Google Spreadsheet + P
 
 /* ---------- resume medis ---------- */
 const RL={
- en:{title:'MEDICAL REPORT',sub:'Laporan Pemeriksaan Medis',ref:'Ref. No.',
+ en:{title:'MEDICAL REPORT',sub:'',ref:'Ref. No.',
   sDx:'Diagnosis',sSubj:'Subjective',sObj:'Objective',sGC:'General Condition',sVS:'Vital Signs',sPE:'Physical Examination',sTx:'Treatment & Medications',sAdj:'Chronic Medication Adjustments',sRxFree:'Additional Treatment',sAdv:'Advice & Recommendations',mr:'MR Number',contact:'Contact person',gc:'General condition',consc:'Consciousness',gcs:'GCS',allergyD:'Drug allergies',histP:'Past medical history',medsC:'Current medications',oral:'Oral Medication',inj:'Intravenous (IV) & Injection Therapy',oth:'Other Medications',initial:'Initial',fu:'Follow-up',given:'given at',ftfY:'Fit to Fly: The patient is medically declared fit to fly on',ftfN:'Fit to Fly: The patient is not yet fit to fly as of',dateR:'Date',
   s1:'Patient Information',s2:'Visit Details',s3:'Clinical Summary',s4:'Chief Complaint & History',s5:'Vital Signs',s6:'Assessment / Diagnosis',s7:'Treatment & Medication',s8:'Clinical Procedures',s9:'Physician Instructions & Follow-up',s10:'Disposition',s11:'Additional Notes',
   name:'Full name',pass:'Passport no.',nat:'Country',dob:'Date of birth / Age',age:'Age',noneVal:'None',sex:'Sex',lang:'Language',hotel:'Hotel',phone:'Phone',ins:'Insurance',allergy:'Allergy',comp:'Companion',
