@@ -361,7 +361,12 @@ const natList=(a,lang)=>a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+(lang==='
 const chiefLabel=p=>{const it=(p.complaint.items||[]).map(k=>cmpL(k,'en'));return [it.join(', '),p.complaint.chief].filter(Boolean).join(' — ')};
 const flagOf=name=>{const c=COUNTRIES.find(x=>x[0].toLowerCase()===String(name||'').toLowerCase().trim());if(!c)return '';return String.fromCodePoint(...[...c[1]].map(ch=>127397+ch.charCodeAt(0)))};
 
-const ACTIONS=['Pemeriksaan fisik','Pengukuran TTV','Pasang infus','Injeksi IV','Injeksi IM','Nebulisasi','Pemberian O₂','Perawatan luka','Hecting','Cek GDS','EKG','Pemberian obat oral','Kompres','Edukasi pasien','Persiapan rujukan','Pendampingan evakuasi'];
+const ACTIONS=['Pemeriksaan fisik','Pengukuran TTV','Pengukuran SpO₂','Pasang infus','Ganti cairan infus','Pelepasan infus','Injeksi IV','Injeksi IM','Pemberian obat IV/drip','Nebulisasi','Pemberian O₂','Perawatan luka','Hecting','Cek GDS','EKG','Pemberian obat oral','Kompres','Observasi kondisi pasien','Edukasi pasien','Persiapan rujukan','Pendampingan evakuasi'];
+const ACTIONS_DOC=['Anamnesis','Pemeriksaan fisik','Penegakan diagnosis','Instruksi terapi','Evaluasi lanjutan (follow-up)','Interpretasi EKG','Hecting','Insisi & drainase','Ekstraksi benda asing','Reposisi / pemasangan bidai','Konsultasi / telekonsultasi','Edukasi pasien','Rujukan ke RS','Pembuatan surat keterangan medis'];
+const ACTIONS_LAB=['Pengambilan sampel darah','Darah lengkap (CBC)','Cek GDS','Tes NS1 dengue','Tes antibodi dengue (IgG/IgM)','Tes malaria (RDT)','Tes widal','Tes antigen COVID-19','Tes influenza A/B','Urinalisis','Tes kehamilan','Elektrolit','Fungsi hati (SGOT/SGPT)','Fungsi ginjal (ureum/kreatinin)','Kolesterol / asam urat','Pengiriman sampel ke laboratorium'];
+const ROLE_L={doctor:['Physician','Dokter'],nurse:['Nurse','Perawat'],lab:['Laboratory staff','Petugas Lab']};
+const ROLE_ACTS={nurse:()=>ACTIONS,doctor:()=>ACTIONS_DOC,lab:()=>ACTIONS_LAB};
+const staffNames=p=>[...new Set([DB.settings.doctor,DB.settings.nurse,p&&p.team?.doctor,p&&p.team?.nurse,...(DB.settings.signatures||[]).map(g=>g.name),...DB.patients.flatMap(q=>[...(q.actions||[]).map(a=>a.nurse),...(q.advice||[]).map(a=>a.doctor)])].filter(n=>n&&String(n).trim()).map(n=>String(n).trim()))];
 const OUTCOMES={hotel:'Rawat di hotel / perbaikan',rujuk:'Dirujuk ke RS',evak:'Evakuasi medis',tolak:'Menolak tindakan (APS)',lain:'Lainnya'};
 
 /* ---------- NEWS2 ---------- */
@@ -386,7 +391,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.19-45';
+const APP_VERSION='v2026.10.19-47';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -722,7 +727,7 @@ function events(p){
   p.advice.forEach(x=>ev.push({t:x.t,k:'d',ttl:'Advice '+(x.doctor||'dokter'),txt:[x.dx&&('Dx: '+x.dx),x.rx&&('Terapi: '+x.rx),x.plan&&('Instruksi: '+x.plan),x.follow&&('Tindak lanjut: '+x.follow)].filter(Boolean).join('\n'),ref:'d:'+x.id}));
   (p.meds||[]).forEach(m=>ev.push({t:m.t,k:'m',ttl:'Obat',txt:[[m.name,m.dose].filter(Boolean).join(' '),lk(ROUTES,m.route,2),lk(FREQS,m.freq,2),m.qty].filter(Boolean).join(' · ')+(m.note?'\n'+m.note:''),ref:'m:'+m.id}));
   if(p.exam&&p.exam.t){const e=p.exam,ab=EXAM_SYS.filter(r=>(e.sys||{})[r[0]]?.st==='a').map(r=>r[2]+': '+((e.sys[r[0]].note)||'abnormal'));ev.push({t:e.t,k:'e',ttl:'Pemeriksaan fisik',txt:[[lk(GC,e.gc,2)&&('KU '+lk(GC,e.gc,2)),lk(CONSC,e.consc,2),gcsTot(e)!=null?'GCS '+gcsTot(e):''].filter(Boolean).join(' · '),...(ab.length?ab:['Sistem lain dalam batas normal'])].filter(Boolean).join('\n'),ref:'exam'})}
-  p.actions.forEach(x=>ev.push({t:x.t,k:'a',ttl:'Tindakan '+(x.nurse||'perawat'),txt:(x.items||[]).join(', ')+(x.detail?'\n'+x.detail:''),ref:'a:'+x.id}));
+  p.actions.forEach(x=>ev.push({t:x.t,k:'a',ttl:'Tindakan '+(x.nurse||(x.role==='doctor'?'dokter':'perawat')),txt:(x.items||[]).join(', ')+(x.detail?'\n'+x.detail:''),ref:'a:'+x.id}));
   if(p.outcome)ev.push({t:p.outcome.t,k:'s',ttl:'Selesai — '+(OUTCOMES[p.outcome.type]||''),txt:[p.outcome.dest&&('Tujuan: '+p.outcome.dest),p.outcome.note].filter(Boolean).join('\n'),ref:'end'});
   return ev.sort((a,b)=>b.t-a.t);
 }
@@ -771,8 +776,8 @@ function tabAdv(p){const xs=p.advice.slice().sort((a,b)=>b.t-a.t);
   ${xs.length?xs.map(x=>`<div class="card pad" style="display:flex;flex-direction:column;gap:10px"><div class="row between"><div class="row">${ic('steth')}<b>${esc(x.doctor||'Dokter')}</b><span class="xs muted mono">${fDT(x.t)}</span>${x.follow?`<span class="pill done">${esc(x.follow)}</span>`:''}</div><div><button class="iconbtn" data-edadv="${x.id}" aria-label="Edit">${ic('edit',16)}</button><button class="iconbtn" data-deladv="${x.id}" aria-label="Hapus">${ic('trash',16)}</button></div></div>
    <dl class="kv"><dt>Diagnosis / kesan</dt><dd>${esc(x.dx||'–')}${x.icd?` <span class="pill done mono">${esc(x.icd)}</span>`:''}</dd><dt>Terapi / resep</dt><dd style="white-space:pre-wrap">${esc(x.rx||'–')}</dd><dt>Instruksi</dt><dd style="white-space:pre-wrap">${esc(x.plan||'–')}</dd></dl></div>`).join(''):`<div class="card empty">${ic('steth')}Belum ada advice dokter.</div>`}`}
 function tabAct(p){const xs=p.actions.slice().sort((a,b)=>b.t-a.t);
-  return `<div class="row between"><h2 style="font-size:17px">Tindakan Keperawatan</h2>${p.status==='aktif'?`<button class="btn pri" data-act="addAct">${ic('plus')}Tambah Tindakan</button>`:''}</div>
-  ${xs.length?`<div class="card pad">${timeline(xs.map(x=>({t:x.t,k:'a',ttl:(x.items||[]).join(', ')||'Tindakan',txt:(x.detail||'')+(x.nurse?(x.detail?'\n':'')+'— '+x.nurse:''),chip:`<span><button class="iconbtn" data-edact="${x.id}" aria-label="Edit">${ic('edit',15)}</button><button class="iconbtn" data-delact="${x.id}" aria-label="Hapus">${ic('trash',15)}</button></span>`})))}</div>`:`<div class="card empty">${ic('hand')}Belum ada tindakan tercatat.</div>`}`}
+  return `<div class="row between"><h2 style="font-size:17px">Tindakan Medis & Keperawatan</h2>${p.status==='aktif'?`<button class="btn pri" data-act="addAct">${ic('plus')}Tambah Tindakan</button>`:''}</div>
+  ${xs.length?`<div class="card pad">${timeline(xs.map(x=>({t:x.t,k:'a',ttl:(x.items||[]).join(', ')||'Tindakan',txt:(x.detail||'')+(x.nurse?(x.detail?'\n':'')+'— '+x.nurse+(x.role?' ('+ROLE_L[x.role][1]+')':''):''),chip:`<span><button class="iconbtn" data-edact="${x.id}" aria-label="Edit">${ic('edit',15)}</button><button class="iconbtn" data-delact="${x.id}" aria-label="Hapus">${ic('trash',15)}</button></span>`})))}</div>`:`<div class="card empty">${ic('hand')}Belum ada tindakan tercatat.</div>`}`}
 function tabId(p){const i=p.identity;
   return `<div class="two"><div class="card pad"><div class="sec-h"><h2>Identitas</h2><button class="iconbtn" data-act="edit">${ic('edit')}</button></div><dl class="kv">
    <dt>Nama lengkap</dt><dd>${esc(i.name)}</dd><dt>No. paspor</dt><dd class="mono">${esc(i.passport||'–')}</dd><dt>Negara</dt><dd>${flagOf(i.nationality)} ${esc(i.nationality||'–')}</dd><dt>Tanggal lahir</dt><dd>${i.dob?fDate(i.dob):'–'} ${ageOf(p)!=null?'('+ageOf(p)+' th)':''}</dd><dt>Jenis kelamin</dt><dd>${i.sex==='L'?'Laki-laki':i.sex==='P'?'Perempuan':'–'}</dd><dt>Bahasa</dt><dd>${esc(i.lang||'–')}</dd><dt>Alergi</dt><dd style="color:${i.allergy?'var(--crit)':'inherit'}">${esc(i.allergy||'Tidak ada')}</dd></dl></div>
@@ -865,7 +870,7 @@ function vSet(){const s=DB.settings,demo=DB.patients.filter(p=>p.demo).length;
   </div>`}
 
 /* ---------- terjemahan otomatis (Apps Script) ---------- */
-const ACT_EN={'Pemeriksaan fisik':'Physical examination','Pengukuran TTV':'Vital signs measurement','Pasang infus':'IV line insertion','Injeksi IV':'IV injection','Injeksi IM':'IM injection','Nebulisasi':'Nebulization','Pemberian O₂':'Oxygen therapy','Perawatan luka':'Wound care','Hecting':'Suturing','Cek GDS':'Blood glucose check','EKG':'ECG','Pemberian obat oral':'Oral medication','Kompres':'Compress','Edukasi pasien':'Patient education','Persiapan rujukan':'Referral preparation','Pendampingan evakuasi':'Evacuation escort'};
+const ACT_EN={'Pemeriksaan fisik':'Physical examination','Pengukuran TTV':'Vital signs measurement','Pasang infus':'IV line insertion','Injeksi IV':'IV injection','Injeksi IM':'IM injection','Nebulisasi':'Nebulization','Pemberian O₂':'Oxygen therapy','Perawatan luka':'Wound care','Hecting':'Suturing','Cek GDS':'Blood glucose check','EKG':'ECG','Pemberian obat oral':'Oral medication','Kompres':'Compress','Edukasi pasien':'Patient education','Persiapan rujukan':'Referral preparation','Pendampingan evakuasi':'Evacuation escort','Pengukuran SpO₂':'SpO₂ measurement','Ganti cairan infus':'IV fluid replacement','Pelepasan infus':'IV line removal','Pemberian obat IV/drip':'IV / infusion medication','Observasi kondisi pasien':'Patient observation','Anamnesis':'History taking','Penegakan diagnosis':'Clinical assessment and diagnosis','Instruksi terapi':'Treatment orders','Evaluasi lanjutan (follow-up)':'Follow-up evaluation','Interpretasi EKG':'ECG interpretation','Insisi & drainase':'Incision and drainage','Ekstraksi benda asing':'Foreign body removal','Reposisi / pemasangan bidai':'Reduction / splinting','Konsultasi / telekonsultasi':'Consultation / teleconsultation','Rujukan ke RS':'Hospital referral','Pembuatan surat keterangan medis':'Medical certificate issued','Pengambilan sampel darah':'Blood sampling','Darah lengkap (CBC)':'Complete blood count (CBC)','Tes NS1 dengue':'Dengue NS1 antigen test','Tes antibodi dengue (IgG/IgM)':'Dengue IgG/IgM antibody test','Tes malaria (RDT)':'Malaria rapid diagnostic test','Tes widal':'Widal test','Tes antigen COVID-19':'COVID-19 antigen test','Tes influenza A/B':'Influenza A/B rapid test','Urinalisis':'Urinalysis','Tes kehamilan':'Pregnancy test','Elektrolit':'Electrolytes','Fungsi hati (SGOT/SGPT)':'Liver function test (AST/ALT)','Fungsi ginjal (ureum/kreatinin)':'Renal function test (urea/creatinine)','Kolesterol / asam urat':'Cholesterol / uric acid','Pengiriman sampel ke laboratorium':'Sample sent to laboratory'};
 const FOLLOW_EN={'Observasi':'Observation','Kontrol ulang':'Follow-up visit','Rujuk RS':'Hospital referral','Evakuasi medis':'Medical evacuation','Pulang / selesai':'Discharged'};
 const GLOSS=[
  [/\bKU\s*:?\s*cukup\b/gi,'general condition fair'],[/\bKU\s*:?\s*baik\b/gi,'general condition good'],[/\bKU\s*:?\s*lemah\b/gi,'general condition weak'],[/(general condition \w+)\s*,\s*cm\b/gi,'$1, compos mentis'],
@@ -944,7 +949,7 @@ const SERVER_CODE="/**\n * MITRA 911 ONCALL \u2014 Server Google Spreadsheet + P
 const RL={
  en:{title:'MEDICAL REPORT',sub:'Laporan Pemeriksaan Medis',ref:'Ref. No.',
   sDx:'Diagnosis',sSubj:'Subjective',sObj:'Objective',sGC:'General Condition',sVS:'Vital Signs',sPE:'Physical Examination',sTx:'Treatment & Medications',sAdj:'Chronic Medication Adjustments',sRxFree:'Additional Treatment',sAdv:'Advice & Recommendations',mr:'MR Number',contact:'Contact person',gc:'General condition',consc:'Consciousness',gcs:'GCS',allergyD:'Drug allergies',histP:'Past medical history',medsC:'Current medications',oral:'Oral Medication',inj:'Intravenous (IV) & Injection Therapy',oth:'Other Medications',initial:'Initial',fu:'Follow-up',given:'given at',ftfY:'Fit to Fly: The patient is medically declared fit to fly on',ftfN:'Fit to Fly: The patient is not yet fit to fly as of',dateR:'Date',
-  s1:'Patient Information',s2:'Visit Details',s3:'Clinical Summary',s4:'Chief Complaint & History',s5:'Vital Signs',s6:'Assessment / Diagnosis',s7:'Treatment & Medication',s8:'Nursing Procedures',s9:'Physician Instructions & Follow-up',s10:'Disposition',s11:'Additional Notes',
+  s1:'Patient Information',s2:'Visit Details',s3:'Clinical Summary',s4:'Chief Complaint & History',s5:'Vital Signs',s6:'Assessment / Diagnosis',s7:'Treatment & Medication',s8:'Clinical Procedures',s9:'Physician Instructions & Follow-up',s10:'Disposition',s11:'Additional Notes',
   name:'Full name',pass:'Passport no.',nat:'Country',dob:'Date of birth / Age',age:'Age',noneVal:'None',sex:'Sex',lang:'Language',hotel:'Hotel',phone:'Phone',ins:'Insurance',allergy:'Allergy',comp:'Companion',
   date:'Visit date',arr:'Arrival time',end:'Completion time',dur:'Duration',doc:'Attending physician',nurse:'Nurse',
   cc:'Chief complaint',ccDet:'Complaint details',onset:'Onset',pain:'Pain score',notes:'Notes',hist:'Medical history',meds:'Regular medication',
@@ -956,7 +961,7 @@ const RL={
   out:{hotel:'Treated at hotel / improved',rujuk:'Referred to hospital',evak:'Medical evacuation',tolak:'Refused treatment (against medical advice)',lain:'Other'}},
  id:{title:'LAPORAN PEMERIKSAAN MEDIS',sub:'Medical Report',ref:'No. Ref.',
   sDx:'Diagnosis',sSubj:'Subjektif',sObj:'Objektif',sGC:'Keadaan Umum',sVS:'Tanda-Tanda Vital',sPE:'Pemeriksaan Fisik',sTx:'Terapi & Obat',sAdj:'Penyesuaian Obat Rutin',sRxFree:'Terapi Tambahan',sAdv:'Saran & Rekomendasi',mr:'No. Rekam Medis',contact:'Kontak darurat',gc:'Keadaan umum',consc:'Kesadaran',gcs:'GCS',allergyD:'Alergi obat',histP:'Riwayat penyakit',medsC:'Obat rutin',oral:'Obat Oral',inj:'Terapi Intravena (IV) & Injeksi',oth:'Obat Lain',initial:'Awal',fu:'Lanjutan',given:'diberikan pukul',ftfY:'Fit to Fly: Pasien dinyatakan layak terbang (fit to fly) pada',ftfN:'Fit to Fly: Pasien belum layak terbang per',dateR:'Tanggal',
-  s1:'Identitas Pasien',s2:'Data Kunjungan',s3:'Ringkasan Klinis',s4:'Keluhan & Riwayat',s5:'Tanda-Tanda Vital',s6:'Diagnosis / Kesan Klinis',s7:'Terapi & Obat',s8:'Tindakan Keperawatan',s9:'Instruksi Dokter & Tindak Lanjut',s10:'Hasil Penanganan',s11:'Catatan Tambahan',
+  s1:'Identitas Pasien',s2:'Data Kunjungan',s3:'Ringkasan Klinis',s4:'Keluhan & Riwayat',s5:'Tanda-Tanda Vital',s6:'Diagnosis / Kesan Klinis',s7:'Terapi & Obat',s8:'Tindakan Medis, Keperawatan & Laboratorium',s9:'Instruksi Dokter & Tindak Lanjut',s10:'Hasil Penanganan',s11:'Catatan Tambahan',
   name:'Nama lengkap',pass:'No. paspor',nat:'Negara',dob:'Tgl lahir / Usia',age:'Usia',noneVal:'Tidak ada',sex:'Jenis kelamin',lang:'Bahasa',hotel:'Hotel',phone:'Telepon',ins:'Asuransi',allergy:'Alergi',comp:'Pendamping',
   date:'Tanggal kunjungan',arr:'Waktu tiba',end:'Waktu selesai',dur:'Durasi',doc:'Dokter',nurse:'Perawat',
   cc:'Keluhan utama',ccDet:'Keterangan keluhan',onset:'Onset',pain:'Skala nyeri',notes:'Catatan',hist:'Riwayat penyakit',meds:'Obat rutin',
@@ -1065,7 +1070,7 @@ function buildResume(p,lang){
     const rx=adv.filter(x=>x.rx);if(rx.length)pushB(meds.length?L.sRxFree:'',rx.flatMap(x=>String(x.rx).split('\n')),2);
     const adj=(p.medAdj||[]).map(a=>`${lk(ADJ,a.action,EN?1:2)} ${a.drug}${(EN?T('ma.'+a.id+'.note',a.note):a.note)?' '+(EN?T('ma.'+a.id+'.note',a.note):a.note):''}.`.replace(/\.\.$/,'.'));
     pushB(L.sAdj,adj,2);
-    if(acts.length)S.push({h:L.s8,lv:2,table:{head:[L.time,L.proc,L.detail,L.by],rows:acts.map(x=>[tStamp(x.t),(x.items||[]).join(', ')||'–',x.detail||'–',x.nurse||'–'])},widths:[multiDay?14:11,30,multiDay?40:43,16]});
+    if(acts.length)S.push({h:L.s8,lv:2,table:{head:[L.time,L.proc,L.detail,L.by],rows:acts.map(x=>[tStamp(x.t),(x.items||[]).join(', ')||'–',x.detail||'–',(x.nurse||'–')+(x.nurse?' ('+ROLE_L[x.role||'nurse'][EN?0:1]+')':'')])},widths:[multiDay?14:11,30,multiDay?40:43,16]});
   });
   // ADVICE & RECOMMENDATIONS
   const rc=p.recs||{},ft=p.ftf;
@@ -1205,7 +1210,7 @@ function noteSheet(p){
      const dx=val('np_dx'),icd=val('np_icd').split(/\s|—/)[0].toUpperCase(),plan=val('np_plan');
      const sameA=lp.advice.find(x=>sameDay(x.t,t)&&(x.dx||'').toLowerCase()===dx.toLowerCase());if(sameA)Object.assign(sameA,{t,doctor:doc,icd:icd||sameA.icd,plan:plan||sameA.plan});else if(dx||icd||plan)lp.advice.push({id:uid(),t,doctor:doc,dx,icd,rx:'',plan,follow:''});
      lp.meds=lp.meds||[];P.meds.forEach((m,k)=>{if(!$('#npm_on'+k).checked)return;const nm=val('npm_name'+k);if(!nm)return;const dup=lp.meds.find(x=>sameDay(x.t,t)&&x.name.toLowerCase()===nm.toLowerCase());if(dup){Object.assign(dup,{t,dose:val('npm_dose'+k),route:val('npm_route'+k),freq:val('npm_freq'+k),note:val('npm_note'+k)});return}lp.meds.push({id:uid(),t,name:nm,dose:val('npm_dose'+k),route:val('npm_route'+k),freq:val('npm_freq'+k),qty:'',note:val('npm_note'+k)})});
-     const so=val('np_so');const dupS=so&&lp.actions.find(x=>sameDay(x.t,t)&&x.detail===so);if(so&&!dupS)lp.actions.push({id:uid(),t,nurse:lp.team?.nurse||DB.settings.nurse||'',items:['Pemeriksaan fisik'],detail:so});
+     const so=val('np_so');const dupS=so&&lp.actions.find(x=>sameDay(x.t,t)&&x.detail===so);if(so&&!dupS)lp.actions.push({id:uid(),t,nurse:doc,role:'doctor',items:['Evaluasi lanjutan (follow-up)','Pemeriksaan fisik'],detail:so});
      if(P.recs.length||P.custom.length){const r=lp.recs||{items:[],custom:''};const it=new Set(r.items||[]);P.recs.forEach(k=>it.add(k));const cu=(r.custom||'').split('\n').map(s=>s.trim()).filter(Boolean);P.custom.forEach(c=>{if(!cu.includes(c))cu.push(c)});lp.recs={items:[...it],custom:cu.join('\n')}}
      if($('#np_ftf').checked){const f=ftfData(lp);Object.assign(f,{st:'fit',exam:t,doctor:doc,vsId:vid||f.vsId,sum:[P.subj,P.obj.length?'Pemeriksaan fisik: '+P.obj.join('; '):''].filter(Boolean).join('\n')||f.sum});lp.ftfCert=f;lp.ftf={st:'fit',date:new Date(t).toISOString().slice(0,10),note:(lp.ftf&&lp.ftf.note)||''}}
      save();toast('Catatan dokter tersimpan — cek & terjemahkan di Laporan Medis');render()},'Simpan semua');
@@ -1706,17 +1711,23 @@ function advSheet(p,ex){const x=ex||{};SH.follow=x.follow||'';
   $('#a_icd').addEventListener('change',e=>{const m=e.target.value.match(/^\s*([A-Z]\d{2}(?:\.\d{1,2})?)\s*—\s*(.+)$/i);if(m){e.target.value=m[1];if(!val('a_dx'))$('#a_dx').value=m[2]}});
   $('#sf').addEventListener('click',e=>{const c=e.target.closest('[data-follow]');if(c){SH.follow=SH.follow===c.dataset.follow?'':c.dataset.follow;$$('[data-follow]').forEach(b=>b.classList.toggle('on',b.dataset.follow===SH.follow))}});
 }
-function actSheet(p,ex){const x=ex||{};SH.items=new Set(x.items||[]);
-  sheet(ex?'Edit tindakan':'Tindakan perawat',`
-   <div class="fgrid"><div class="f"><label for="n_nurse">Perawat</label><input id="n_nurse" value="${esc(x.nurse??p.team?.nurse??DB.settings.nurse)}"></div><div class="f"><label for="n_t">Waktu</label><input id="n_t" type="datetime-local" value="${toLocalInput(x.t||Date.now())}"></div></div>
-   <div class="f"><label>Pilih tindakan (bisa lebih dari satu)</label><div class="chips">${ACTIONS.map(k=>`<button type="button" class="chip ${SH.items.has(k)?'on':''}" data-item="${esc(k)}">${esc(k)}</button>`).join('')}</div></div>
+const NM_L={nurse:'Nama perawat',doctor:'Nama dokter',lab:'Nama petugas lab'};
+function actSheet(p,ex){const x=ex||{};SH.items=new Set(x.items||[]);SH.role=x.role||'nurse';
+  const defName=r=>r==='doctor'?(p.team?.doctor||DB.settings.doctor||''):r==='lab'?(DB.settings.labName||''):(p.team?.nurse||DB.settings.nurse||'');
+  const chips=()=>{const list=ROLE_ACTS[SH.role]();const extra=[...SH.items].filter(k=>!list.includes(k));return [...list,...extra].map(k=>`<button type="button" class="chip ${SH.items.has(k)?'on':''}" data-item="${esc(k)}">${esc(k)}</button>`).join('')};
+  sheet(ex?'Edit tindakan':'Tindakan',`
+   <div class="f"><label>Dilakukan oleh</label><div class="seg">${[['nurse','Perawat'],['doctor','Dokter'],['lab','Petugas Lab']].map(([k,l])=>`<button type="button" class="${SH.role===k?'on':''}" data-role="${k}">${l}</button>`).join('')}</div></div>
+   <div class="fgrid"><div class="f"><label for="n_nurse" id="n_lbl">${NM_L[SH.role]}</label><input id="n_nurse" list="n_staff" value="${esc(x.nurse??defName(SH.role))}" autocomplete="off"><datalist id="n_staff">${staffNames(p).map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div><div class="f"><label for="n_t">Waktu</label><input id="n_t" type="datetime-local" value="${toLocalInput(x.t||Date.now())}"></div></div>
+   <div class="f"><label>Pilih tindakan (bisa lebih dari satu)</label><div class="chips" id="n_chips">${chips()}</div></div>
    <div class="f"><label for="n_other">Tindakan lain</label><input id="n_other" placeholder="Pisahkan dengan koma"></div>
-   <div class="f"><label for="n_det">Detail / respons pasien</label><textarea id="n_det" placeholder="mis. IV line 20G tangan kiri, RL 20 tpm. Pasien kooperatif.">${esc(x.detail||'')}</textarea></div>`,()=>{
+   <div class="f"><label for="n_det">Detail / respons pasien / hasil lab</label><textarea id="n_det" placeholder="mis. IV line 20G tangan kiri, RL 20 tpm. Pasien kooperatif.">${esc(x.detail||'')}</textarea></div>`,()=>{
    val('n_other').split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>SH.items.add(s));
-   const rec={id:x.id||uid(),t:fromLocalInput(val('n_t')),nurse:val('n_nurse'),items:[...SH.items],detail:val('n_det')};
+   if(SH.role==='lab'&&val('n_nurse'))DB.settings.labName=val('n_nurse');
+   const rec={id:x.id||uid(),t:fromLocalInput(val('n_t')),nurse:val('n_nurse'),role:SH.role,items:[...SH.items],detail:val('n_det')};
    if(!rec.items.length&&!rec.detail){toast('Pilih atau tulis tindakan');return false}
    const lp=getP(p.id)||p,le=ex&&lp.actions.find(a=>a.id===ex.id);le?Object.assign(le,rec):lp.actions.push(rec);save();toast(rec.t<p.createdAt-60000?'Tersimpan — perhatian: jam tindakan lebih awal dari jam tiba pasien':'Tindakan tersimpan');render()});
-  $('#sf').addEventListener('click',e=>{const c=e.target.closest('[data-item]');if(c){const k=c.dataset.item;SH.items.has(k)?SH.items.delete(k):SH.items.add(k);c.classList.toggle('on')}});
+  $('#sf').addEventListener('click',e=>{const c=e.target.closest('[data-item]');if(c){const k=c.dataset.item;SH.items.has(k)?SH.items.delete(k):SH.items.add(k);c.classList.toggle('on')}
+    const r=e.target.closest('[data-role]');if(r&&r.dataset.role!==SH.role){const inp=$('#n_nurse');if(!inp.value.trim()||inp.value.trim()===defName(SH.role))inp.value=defName(r.dataset.role);SH.role=r.dataset.role;$$('[data-role]').forEach(b=>b.classList.toggle('on',b===r));$('#n_lbl').textContent=NM_L[SH.role];$('#n_det').placeholder=SH.role==='lab'?'mis. Hb 13.2 g/dL, Leukosit 11.500/µL, Trombosit 145.000/µL; NS1 negatif':'mis. IV line 20G tangan kiri, RL 20 tpm. Pasien kooperatif.';$('#n_chips').innerHTML=chips()}});
 }
 function finishSheet(p){const o=p.outcome||{},ed=!!p.outcome;
   sheet(ed?'Edit hasil penanganan':'Selesaikan penanganan',`
