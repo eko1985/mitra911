@@ -386,7 +386,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.18-42';
+const APP_VERSION='v2026.10.19-43';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -868,6 +868,12 @@ function vSet(){const s=DB.settings,demo=DB.patients.filter(p=>p.demo).length;
 const ACT_EN={'Pemeriksaan fisik':'Physical examination','Pengukuran TTV':'Vital signs measurement','Pasang infus':'IV line insertion','Injeksi IV':'IV injection','Injeksi IM':'IM injection','Nebulisasi':'Nebulization','Pemberian O₂':'Oxygen therapy','Perawatan luka':'Wound care','Hecting':'Suturing','Cek GDS':'Blood glucose check','EKG':'ECG','Pemberian obat oral':'Oral medication','Kompres':'Compress','Edukasi pasien':'Patient education','Persiapan rujukan':'Referral preparation','Pendampingan evakuasi':'Evacuation escort'};
 const FOLLOW_EN={'Observasi':'Observation','Kontrol ulang':'Follow-up visit','Rujuk RS':'Hospital referral','Evakuasi medis':'Medical evacuation','Pulang / selesai':'Discharged'};
 const GLOSS=[
+ [/\bKU\s*:?\s*cukup\b/gi,'general condition fair'],[/\bKU\s*:?\s*baik\b/gi,'general condition good'],[/\bKU\s*:?\s*lemah\b/gi,'general condition weak'],[/(general condition \w+)\s*,\s*cm\b/gi,'$1, compos mentis'],
+ [/\bca\s*-\s*\/\s*-/gi,'no conjunctival pallor'],[/\bca\s*\+\s*\/\s*\+/gi,'conjunctival pallor'],[/\bsi\s*-\s*\/\s*-/gi,'no scleral icterus'],[/\bsi\s*\+\s*\/\s*\+/gi,'scleral icterus'],
+ [/\bs1\s*s2\s*(?:reg(?:uler)?|regular)\b/gi,'S1–S2 regular'],[/\bwh?z\s*-\s*\/\s*-/gi,'no wheezing'],[/\b(?:rh|ronkhi|ronki|rhonki)\s*-\s*\/\s*-/gi,'no rhonchi'],[/\bves(?:ikuler)?\s*\+\s*\/\s*\+/gi,'vesicular breath sounds'],
+ [/\bBU\s*\(\s*\+\s*\)/g,'bowel sounds present'],[/\bnyeri tekan\s*\(\s*-\s*\)/gi,'no tenderness'],[/\bakral hangat\b/gi,'warm extremities'],[/\bcrt\s*<\s*2\s*(?:dtk|detik|s)\b/gi,'CRT < 2 seconds'],
+ [/\bCor\s*:/g,'Heart:'],[/\bPulmo\s*:/gi,'Lungs:'],[/\bKepala\s*:/gi,'Head:'],[/\bekstremitas\s*:/gi,'Extremities:'],[/\bGastro\s*:/gi,'Abdomen:'],
+ [/\b([A-Za-z]{3,})\s*\(\s*-\s*\)/g,'tidak ada $1'],[/\b([A-Za-z]{3,})\s*\(\s*\+\s*\)/g,'ada $1'],
  [/^\s*(?:diare|mencret)\s+(?:sejak|selama)\s+(\d+)\s*hari(?:\s+yang\s+lalu)?\s*$/i,'$1 days'],[/\bsejak\s+(\d+)\s*hari(?:\s+yang\s+lalu)?/gi,'for the past $1 days'],[/\b(\d+)\s*hari yang lalu\b/gi,'$1 days ago'],
  [/^\s*(tidak ada|tdk ada|tidak|disangkal|-)\s*\.?\s*$/i,'None'],[/\bmakan(?: dan| &)? minum sedikit\b/gi,'reduced oral intake'],[/\bnafsu makan (?:menurun|turun|berkurang)\b/gi,'decreased appetite'],[/\bBAB cair\b/gi,'watery stools'],[/\bBAB\b/g,'bowel movement'],[/\bBAK\b/g,'urination'],[/\blemas\b/gi,'weakness'],[/\bpusing\b/gi,'dizziness'],
  [/(\d),(\d)/g,'$1.$2'],[/\bIVFD\b/g,'IV fluid drip'],[/\bRL\b/g,"Ringer's lactate"],[/\bNaCl 0\.9 ?%/gi,'normal saline 0.9%'],[/\bD5 ?%?(?=\s|$|,)/g,'dextrose 5%'],
@@ -895,6 +901,7 @@ function trFields(p){
   if(p.recs)add('rec.custom','Rekomendasi lain',p.recs.custom);
   if(p.ftf)add('ftf.note','Keterangan Fit to Fly',p.ftf.note);
   if(p.ftfCert)add('ftf.cert','Keterangan surat Fit to Fly',p.ftfCert.note);
+  if(p.ftfCert)add('ftf.sum','Ringkasan kondisi (Fit to Fly)',p.ftfCert.sum);
   if(p.outcome)add('out.note','Catatan akhir',p.outcome.note);
   add('resume.note','Catatan tambahan laporan',p.resumeNote);
   return F;
@@ -1200,7 +1207,7 @@ function noteSheet(p){
      lp.meds=lp.meds||[];P.meds.forEach((m,k)=>{if(!$('#npm_on'+k).checked)return;const nm=val('npm_name'+k);if(!nm)return;lp.meds.push({id:uid(),t,name:nm,dose:val('npm_dose'+k),route:val('npm_route'+k),freq:val('npm_freq'+k),qty:'',note:val('npm_note'+k)})});
      const so=val('np_so');if(so)lp.actions.push({id:uid(),t,nurse:lp.team?.nurse||DB.settings.nurse||'',items:['Pemeriksaan fisik'],detail:so});
      if(P.recs.length||P.custom.length){const r=lp.recs||{items:[],custom:''};const it=new Set(r.items||[]);P.recs.forEach(k=>it.add(k));const cu=(r.custom||'').split('\n').map(s=>s.trim()).filter(Boolean);P.custom.forEach(c=>{if(!cu.includes(c))cu.push(c)});lp.recs={items:[...it],custom:cu.join('\n')}}
-     if($('#np_ftf').checked){const f=ftfData(lp);Object.assign(f,{st:'fit',exam:t,doctor:doc,vsId:vid||f.vsId});lp.ftfCert=f;lp.ftf={st:'fit',date:new Date(t).toISOString().slice(0,10),note:(lp.ftf&&lp.ftf.note)||''}}
+     if($('#np_ftf').checked){const f=ftfData(lp);Object.assign(f,{st:'fit',exam:t,doctor:doc,vsId:vid||f.vsId,sum:[P.subj,P.obj.length?'Pemeriksaan fisik: '+P.obj.join('; '):''].filter(Boolean).join('\n')||f.sum});lp.ftfCert=f;lp.ftf={st:'fit',date:new Date(t).toISOString().slice(0,10),note:(lp.ftf&&lp.ftf.note)||''}}
      save();toast('Catatan dokter tersimpan — cek & terjemahkan di Laporan Medis');render()},'Simpan semua');
   $('#np_read').addEventListener('click',()=>{const txt=$('#np_txt').value;if(!txt.trim()){toast('Tempel catatan dulu');return}
     const r=parseNote(txt);const now=new Date();
@@ -1212,12 +1219,12 @@ function noteSheet(p){
 /* ---------- surat Fit to Fly ---------- */
 const FTF_AS=[['wchr','Wheelchair assistance at the airport (WCHR)','Bantuan kursi roda di bandara (WCHR)'],['comp','Should travel with a companion','Sebaiknya didampingi pendamping'],['medesc','Medical escort required during the flight','Perlu pendamping medis selama penerbangan'],['o2','Supplemental oxygen during the flight (airline MEDIF form required)','Oksigen tambahan selama penerbangan (perlu formulir MEDIF maskapai)'],['aisle','Aisle seat near the lavatory','Kursi lorong dekat toilet'],['leg','Extra legroom / able to elevate the leg','Ruang kaki ekstra / kaki dapat ditinggikan'],['meds','Prescribed medications to be carried in hand luggage','Obat resep dibawa di bagasi kabin'],['hydr','Maintain good hydration and mobilise regularly during the flight','Cukup minum dan rutin bergerak selama penerbangan']];
 const FTF_L={
- en:{title:'MEDICAL CERTIFICATE',subY:'Fit to Fly',subN:'Not Fit to Fly',sPat:'Patient Information',sExam:'Clinical Findings',sSt:'Medical Statement',sFl:'Flight Details',sReq:'Travel Recommendations',sRem:'Remarks',exam:'Date of examination',dx:'Diagnosis',vs:'Vital signs',gc:'General condition',fd:'Flight date',fno:'Flight no.',route:'Route / airline',noAs:'No special assistance required.',
+ en:{title:'MEDICAL CERTIFICATE',subY:'Fit to Fly',subN:'Not Fit to Fly',sPat:'Patient Information',sExam:'Clinical Findings',sSt:'Medical Statement',sSum:'Clinical Summary',sMed:'Current Medications',sFl:'Flight Details',sReq:'Travel Recommendations',sRem:'Remarks',exam:'Date of examination',dx:'Diagnosis',vs:'Vital signs',gc:'General condition',fd:'Flight date',fno:'Flight no.',route:'Route / airline',noAs:'No special assistance required.',
   mr:'Mr.',ms:'Ms.'},
- id:{title:'SURAT KETERANGAN MEDIS',subY:'Layak Terbang (Fit to Fly)',subN:'Belum Layak Terbang (Not Fit to Fly)',sPat:'Identitas Pasien',sExam:'Hasil Pemeriksaan',sSt:'Pernyataan Dokter',sFl:'Data Penerbangan',sReq:'Anjuran Selama Perjalanan',sRem:'Keterangan',exam:'Tanggal pemeriksaan',dx:'Diagnosis',vs:'Tanda vital',gc:'Keadaan umum',fd:'Tanggal terbang',fno:'No. penerbangan',route:'Rute / maskapai',noAs:'Tidak memerlukan bantuan khusus.',
+ id:{title:'SURAT KETERANGAN MEDIS',subY:'Layak Terbang (Fit to Fly)',subN:'Belum Layak Terbang (Not Fit to Fly)',sPat:'Identitas Pasien',sExam:'Hasil Pemeriksaan',sSt:'Pernyataan Dokter',sSum:'Ringkasan Klinis',sMed:'Obat Saat Ini',sFl:'Data Penerbangan',sReq:'Anjuran Selama Perjalanan',sRem:'Keterangan',exam:'Tanggal pemeriksaan',dx:'Diagnosis',vs:'Tanda vital',gc:'Keadaan umum',fd:'Tanggal terbang',fno:'No. penerbangan',route:'Rute / maskapai',noAs:'Tidak memerlukan bantuan khusus.',
   mr:'Tn.',ms:'Ny.'}
 };
-function ftfData(p){const f=p.ftfCert||{};return {st:f.st||(p.ftf&&p.ftf.st==='unfit'?'unfit':'fit'),exam:f.exam||Date.now(),fdate:f.fdate||'',fno:f.fno||'',route:f.route||'',as:f.as||[],until:f.until||'',valid:f.valid??72,note:f.note||'',nocd:f.nocd!==false,doctor:f.doctor||'',vsId:f.vsId||'',vsMan:f.vsMan||{}}}
+function ftfData(p){const f=p.ftfCert||{};return {st:f.st||(p.ftf&&p.ftf.st==='unfit'?'unfit':'fit'),exam:f.exam||Date.now(),fdate:f.fdate||'',fno:f.fno||'',route:f.route||'',as:f.as||[],until:f.until||'',valid:f.valid??72,note:f.note||'',nocd:f.nocd!==false,doctor:f.doctor||'',vsId:f.vsId||'',vsMan:f.vsMan||{},sum:f.sum||'',inMeds:f.inMeds!==false,inRecs:f.inRecs!==false}}
 function buildFtf(p,lang){
   const EN=lang==='en',T=(k,s)=>EN?trGet(p,k,s):s,L=Object.assign({},RL[lang]),F=FTF_L[lang],f=ftfData(p),i=p.identity,a=ageOf(p);
   const kvf=r=>r.filter(([k,v])=>v!=null&&String(v).trim()!==''),S=[],push=(h,kv)=>{const r=kvf(kv);if(r.length)S.push({h,kv:r,lv:1})};
@@ -1226,12 +1233,13 @@ function buildFtf(p,lang){
   const dobAge=[i.dob?dLong(i.dob,lang):'',a!=null?`${a} ${L.y}`:''].filter(Boolean).join(' / ');
   const nat=EN?String(countryEn(i.nationality)||'').replace(/^the /,''):i.nationality;
   push(F.sPat,[[L.mr,p.mr||''],[L.name,i.name],[L.sex,sexW],[i.dob?L.dob:L.age,dobAge],[L.nat,nat],[L.pass,i.passport&&!isNone(i.passport)?i.passport:'']]);
-  const adv=p.advice.slice().sort((x,y)=>x.t-y.t),dxl=[];
+  const adv0=p.advice.filter(x=>x.dx||x.icd).sort((x,y)=>x.t-y.t),lastDx=adv0.length?adv0[adv0.length-1].t:0,exD=+new Date(f.exam),onEx=adv0.filter(x=>sameDay(x.t,exD)),adv=onEx.length?onEx:adv0.filter(x=>sameDay(x.t,lastDx)),dxl=[];
   adv.forEach(x=>{const d=EN?T('adv.'+x.id+'.dx',x.dx):x.dx;if(d||x.icd){const t=(d||'')+(x.icd?` (ICD-10: ${x.icd})`:'');if(!dxl.includes(t))dxl.push(t)}});
   const vs=p.vitals.slice().sort((x,y)=>x.t-y.t),vN=f.vsId==='manual'?(Object.values(f.vsMan).some(v=>v!==''&&v!=null)?{...f.vsMan,t:+new Date(f.exam)}:null):(f.vsId&&vs.find(v=>v.id===f.vsId))||vs[vs.length-1];
   const e=p.exam||{},gc=[lk(GC,e.gc,EN?1:2),lk(CONSC,e.consc,EN?1:2),gcsTot(e)!=null?'GCS '+gcsTot(e):''].filter(Boolean).join(', ');
   const ex=new Date(f.exam);
   push(F.sExam,[[F.exam,dLong(ex,lang)+', '+fTime(+ex)],[F.dx,dxl.join('; ')],[F.gc,gc],[F.vs,vN?vStr(vN,L)+' ('+fTime(vN.t)+(sameDay(vN.t,+ex)?'':', '+dLong(vN.t,lang))+')':'']]);
+  const sum=EN?T('ftf.sum',f.sum):f.sum;if(sum)S.push({h:F.sSum,text:sum,lv:1});
   const fl=[f.fno,f.route].filter(Boolean).join(', '),fdt=f.fdate?dLong(f.fdate,lang):'';
   const dN=f.doctor||p.team?.doctor||'',dr=(sigFor(dN)||{}).name||(EN?drEn(dN):dN)||'';
   let st;
@@ -1246,8 +1254,10 @@ function buildFtf(p,lang){
   }
   if(f.st==='fit'&&f.valid)st+=EN?` This certificate is valid for ${f.valid} hours from the time of examination.`:` Surat ini berlaku ${f.valid} jam sejak waktu pemeriksaan.`;
   S.push({h:F.sSt,text:st,lv:1});
+  if(f.inMeds&&(p.meds||[]).length){const ms=p.meds.slice().sort((a,b)=>a.t-b.t),lastT=ms[ms.length-1].t,cur=ms.filter(m=>sameDay(m.t,lastT)&&!['IV','IVD','IM','SC'].includes(m.route));
+    if(cur.length)S.push({h:F.sMed,bullets:cur.map(m=>[m.name,m.dose,m.route?lk(ROUTES,m.route,EN?1:2).toLowerCase():''].filter(Boolean).join(' ')+(m.freq?', '+lk(FREQS,m.freq,EN?1:2):'')+(m.qty?' ('+m.qty+')':'')+(m.note?' — '+m.note:'')),lv:1})}
   push(F.sFl,[[F.fd,fdt],[F.fno,f.fno],[F.route,f.route]]);
-  if(f.st==='fit'){const b=f.as.map(k=>lk(FTF_AS,k,EN?1:2)).filter(Boolean);S.push({h:F.sReq,bullets:b.length?b:[F.noAs],lv:1})}
+  if(f.st==='fit'){const b=f.as.map(k=>lk(FTF_AS,k,EN?1:2)).filter(Boolean);const rc=f.inRecs&&p.recs?[...(p.recs.items||[]).filter(k=>!['lab','wound','sun'].includes(k)).map(k=>lk(RECS,k,EN?1:2)),...String(p.recs.custom||'').split('\n').map(x=>x.trim()).filter(Boolean)]:[];S.push({h:F.sReq,bullets:[...(b.length?b:[F.noAs]),...rc],lv:1})}
   const note=EN?T('ftf.cert',f.note):f.note;if(note)S.push({h:F.sRem,text:note,lv:1});
   const g=sigFor(dN);
   return {L,lang,mr:p.mr||'',ref:refNo(p),title:F.title,sub:f.st==='fit'?F.subY:F.subN,sections:S,...sigBlock(g),docName:(g||{}).name||'',docLic:(g||{}).lic||'',doctor:dr,place:'Yogyakarta',date:dLong(+ex,lang),
@@ -1261,6 +1271,9 @@ function ftfForm(p){const f=ftfData(p);
    <div class="fgrid"><div class="f"><label for="ft_exam">Waktu pemeriksaan</label><input id="ft_exam" data-ftf-f="exam" type="datetime-local" value="${toLocalInput(f.exam)}"></div>
     ${f.st==='fit'?`<div class="f"><label for="ft_valid">Berlaku (jam)</label><input id="ft_valid" data-ftf-f="valid" type="number" min="0" inputmode="numeric" value="${esc(f.valid)}"><span class="hint">Umumnya 72 jam; kosongkan bila tidak perlu.</span></div>`
      :`<div class="f"><label for="ft_until">Tidak terbang sebelum (opsional)</label><input id="ft_until" data-ftf-f="until" type="date" value="${esc(f.until)}"></div>`}</div>
+   <div class="f"><label for="ft_sum">Ringkasan kondisi / hasil pemeriksaan (opsional)</label><textarea id="ft_sum" data-ftf-f="sum" rows="4" placeholder="mis. Pasien merasa membaik, batuk & pusing minimal. Pemeriksaan fisik dalam batas normal.">${esc(f.sum)}</textarea><span class="hint">Boleh bahasa Indonesia — tekan “Terjemahkan otomatis” di bawah untuk versi English.</span></div>
+   <label class="row" style="gap:8px;flex-wrap:nowrap;font-size:13.5px"><input type="checkbox" data-ftf-f="inMeds" ${f.inMeds?'checked':''}><span>Cantumkan <b>obat saat ini</b> (obat oral hari terakhir)</span></label>
+   <label class="row" style="gap:8px;flex-wrap:nowrap;font-size:13.5px"><input type="checkbox" data-ftf-f="inRecs" ${f.inRecs?'checked':''}><span>Cantumkan <b>saran dokter</b> (rekomendasi) di anjuran perjalanan</span></label>
    <div class="f"><label for="ft_doc">Dokter pemeriksa</label><input id="ft_doc" data-ftf-f="doctor" list="ft_docs" value="${esc(f.doctor||'')}" placeholder="${esc(p.team?.doctor||'Nama dokter')}" autocomplete="off"><datalist id="ft_docs">${[...new Set([...(DB.settings.signatures||[]).map(g=>g.name),DB.settings.doctor,p.team?.doctor].filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('')}</datalist><span class="hint">Kosongkan untuk memakai dokter kunjungan (${esc(p.team?.doctor||'–')}). Tanda tangan & License Number mengikuti nama ini.</span></div>
    <div class="f"><label for="ft_vs">Tanda vital yang dicantumkan</label><select id="ft_vs" data-ftf-f="vsId"><option value="">Terakhir tercatat${(()=>{const v=p.vitals.slice().sort((a,b)=>b.t-a.t)[0];return v?' ('+fTime(v.t)+')':''})()}</option>${p.vitals.slice().sort((a,b)=>b.t-a.t).map(v=>`<option value="${esc(v.id)}" ${f.vsId===v.id?'selected':''}>${fDate(v.t)} ${fTime(v.t)} · TD ${v.sbp||'–'}/${v.dbp||'–'}, N ${v.hr||'–'}, S ${v.temp||'–'}</option>`).join('')}<option value="manual" ${f.vsId==='manual'?'selected':''}>Isi manual (pemeriksaan untuk surat ini)</option></select>
     ${f.vsId==='manual'?`<div class="fgrid" style="margin-top:8px;grid-template-columns:repeat(auto-fit,minmax(90px,1fr))">${[['sbp','TD sistolik'],['dbp','TD diastolik'],['hr','Nadi'],['rr','RR'],['temp','Suhu °C'],['spo2','SpO₂ %']].map(([k,l])=>`<div class="f"><label for="ftv_${k}">${l}</label><input id="ftv_${k}" data-ftf-v="${k}" inputmode="decimal" value="${esc(f.vsMan[k]??'')}"></div>`).join('')}</div><span class="hint">Jam TTV manual = waktu pemeriksaan di atas.</span>`:(()=>{const vs=p.vitals.slice().sort((a,b)=>a.t-b.t),v=(f.vsId&&vs.find(x=>x.id===f.vsId))||vs[vs.length-1],ex=+new Date(f.exam);if(!v)return `<span class="hint" style="color:var(--warn)">Belum ada TTV tercatat — pilih “Isi manual”.</span>`;const h=Math.abs(ex-v.t)/3600000;return h>12?`<div class="newsbar" style="background:var(--warn-soft);margin-top:6px"><span>TTV yang dipakai dari <b>${fDate(v.t)} ${fTime(v.t)}</b>, ${Math.round(h)} jam dari waktu pemeriksaan. Pilih TTV terbaru atau “Isi manual”.</span></div>`:''})()}</div>
