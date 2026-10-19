@@ -386,7 +386,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.19-43';
+const APP_VERSION='v2026.10.19-44';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -1201,17 +1201,17 @@ function noteSheet(p){
      if(!P){toast('Tekan “Baca catatan” dulu');return false}
      const lp=getP(p.id)||p,t=fromLocalInput(val('np_t'))||Date.now(),doc=val('np_doc');
      const vs={};['sbp','dbp','hr','rr','temp','spo2'].forEach(k=>{const x=val('npv_'+k).replace(',','.');if(x)vs[k]=x});
-     let vid='';if(Object.keys(vs).length){vid=uid();lp.vitals.push({id:vid,t,sbp:vs.sbp||'',dbp:vs.dbp||'',hr:vs.hr||'',rr:vs.rr||'',temp:vs.temp||'',spo2:vs.spo2||'',gds:'',pain:'',o2:false,avpu:'A',note:'Follow-up'})}
+     let vid='';const sameV=Object.keys(vs).length&&lp.vitals.find(x=>Math.abs(x.t-t)<60000&&['sbp','dbp','hr','temp','spo2'].every(k=>String(x[k]||'')===String(vs[k]||'')));if(sameV){vid=sameV.id;if(vs.rr&&!sameV.rr)sameV.rr=vs.rr}else if(Object.keys(vs).length){vid=uid();lp.vitals.push({id:vid,t,sbp:vs.sbp||'',dbp:vs.dbp||'',hr:vs.hr||'',rr:vs.rr||'',temp:vs.temp||'',spo2:vs.spo2||'',gds:'',pain:'',o2:false,avpu:'A',note:'Follow-up'})}
      const dx=val('np_dx'),icd=val('np_icd').split(/\s|—/)[0].toUpperCase(),plan=val('np_plan');
-     if(dx||icd||plan)lp.advice.push({id:uid(),t,doctor:doc,dx,icd,rx:'',plan,follow:''});
-     lp.meds=lp.meds||[];P.meds.forEach((m,k)=>{if(!$('#npm_on'+k).checked)return;const nm=val('npm_name'+k);if(!nm)return;lp.meds.push({id:uid(),t,name:nm,dose:val('npm_dose'+k),route:val('npm_route'+k),freq:val('npm_freq'+k),qty:'',note:val('npm_note'+k)})});
-     const so=val('np_so');if(so)lp.actions.push({id:uid(),t,nurse:lp.team?.nurse||DB.settings.nurse||'',items:['Pemeriksaan fisik'],detail:so});
+     const sameA=lp.advice.find(x=>sameDay(x.t,t)&&(x.dx||'').toLowerCase()===dx.toLowerCase());if(sameA)Object.assign(sameA,{t,doctor:doc,icd:icd||sameA.icd,plan:plan||sameA.plan});else if(dx||icd||plan)lp.advice.push({id:uid(),t,doctor:doc,dx,icd,rx:'',plan,follow:''});
+     lp.meds=lp.meds||[];P.meds.forEach((m,k)=>{if(!$('#npm_on'+k).checked)return;const nm=val('npm_name'+k);if(!nm)return;const dup=lp.meds.find(x=>sameDay(x.t,t)&&x.name.toLowerCase()===nm.toLowerCase());if(dup){Object.assign(dup,{t,dose:val('npm_dose'+k),route:val('npm_route'+k),freq:val('npm_freq'+k),note:val('npm_note'+k)});return}lp.meds.push({id:uid(),t,name:nm,dose:val('npm_dose'+k),route:val('npm_route'+k),freq:val('npm_freq'+k),qty:'',note:val('npm_note'+k)})});
+     const so=val('np_so');const dupS=so&&lp.actions.find(x=>sameDay(x.t,t)&&x.detail===so);if(so&&!dupS)lp.actions.push({id:uid(),t,nurse:lp.team?.nurse||DB.settings.nurse||'',items:['Pemeriksaan fisik'],detail:so});
      if(P.recs.length||P.custom.length){const r=lp.recs||{items:[],custom:''};const it=new Set(r.items||[]);P.recs.forEach(k=>it.add(k));const cu=(r.custom||'').split('\n').map(s=>s.trim()).filter(Boolean);P.custom.forEach(c=>{if(!cu.includes(c))cu.push(c)});lp.recs={items:[...it],custom:cu.join('\n')}}
      if($('#np_ftf').checked){const f=ftfData(lp);Object.assign(f,{st:'fit',exam:t,doctor:doc,vsId:vid||f.vsId,sum:[P.subj,P.obj.length?'Pemeriksaan fisik: '+P.obj.join('; '):''].filter(Boolean).join('\n')||f.sum});lp.ftfCert=f;lp.ftf={st:'fit',date:new Date(t).toISOString().slice(0,10),note:(lp.ftf&&lp.ftf.note)||''}}
      save();toast('Catatan dokter tersimpan — cek & terjemahkan di Laporan Medis');render()},'Simpan semua');
   $('#np_read').addEventListener('click',()=>{const txt=$('#np_txt').value;if(!txt.trim()){toast('Tempel catatan dulu');return}
     const r=parseNote(txt);const now=new Date();
-    let t=Date.now();if(r.dateISO){const tm=r.dateISO===new Date().toISOString().slice(0,10)?toLocalInput(Date.now()).slice(11):'12:00';t=fromLocalInput(r.dateISO+'T'+tm)||t}
+    let t=Date.now();const hm=txt.match(/(?:jam|pukul|pkl|time|waktu)\s*[:.]?\s*(\d{1,2})[:.](\d{2})/i);if(r.dateISO){const today=toLocalInput(Date.now()).slice(0,10),fe=p.ftfCert&&p.ftfCert.exam&&toLocalInput(p.ftfCert.exam);const tm=hm?pad(+hm[1])+':'+hm[2]:(fe&&fe.slice(0,10)===r.dateISO?fe.slice(11):r.dateISO===today?toLocalInput(Date.now()).slice(11):'12:00');t=fromLocalInput(r.dateISO+'T'+tm)||t}
     const so=[r.subj?'S: '+r.subj:'',r.obj.length?'O: '+r.obj.join('; '):''].filter(Boolean).join('\n');
     P={...r,t,doc:(p.ftfCert&&p.ftfCert.doctor)||p.team?.doctor||DB.settings.doctor||'',so};draw();
     $('#np_prev').scrollIntoView({behavior:'smooth',block:'start'})});
@@ -1255,12 +1255,12 @@ function buildFtf(p,lang){
   if(f.st==='fit'&&f.valid)st+=EN?` This certificate is valid for ${f.valid} hours from the time of examination.`:` Surat ini berlaku ${f.valid} jam sejak waktu pemeriksaan.`;
   S.push({h:F.sSt,text:st,lv:1});
   if(f.inMeds&&(p.meds||[]).length){const ms=p.meds.slice().sort((a,b)=>a.t-b.t),lastT=ms[ms.length-1].t,cur=ms.filter(m=>sameDay(m.t,lastT)&&!['IV','IVD','IM','SC'].includes(m.route));
-    if(cur.length)S.push({h:F.sMed,bullets:cur.map(m=>[m.name,m.dose,m.route?lk(ROUTES,m.route,EN?1:2).toLowerCase():''].filter(Boolean).join(' ')+(m.freq?', '+lk(FREQS,m.freq,EN?1:2):'')+(m.qty?' ('+m.qty+')':'')+(m.note?' — '+m.note:'')),lv:1})}
+    if(cur.length)S.push({h:F.sMed,bullets:[...new Set(cur.map(m=>[m.name,m.dose,m.route?lk(ROUTES,m.route,EN?1:2).toLowerCase():''].filter(Boolean).join(' ')+(m.freq?', '+lk(FREQS,m.freq,EN?1:2):'')+(m.qty?' ('+m.qty+')':'')+(m.note?' — '+m.note:'')))],lv:1})}
   push(F.sFl,[[F.fd,fdt],[F.fno,f.fno],[F.route,f.route]]);
   if(f.st==='fit'){const b=f.as.map(k=>lk(FTF_AS,k,EN?1:2)).filter(Boolean);const rc=f.inRecs&&p.recs?[...(p.recs.items||[]).filter(k=>!['lab','wound','sun'].includes(k)).map(k=>lk(RECS,k,EN?1:2)),...String(p.recs.custom||'').split('\n').map(x=>x.trim()).filter(Boolean)]:[];S.push({h:F.sReq,bullets:[...(b.length?b:[F.noAs]),...rc],lv:1})}
   const note=EN?T('ftf.cert',f.note):f.note;if(note)S.push({h:F.sRem,text:note,lv:1});
   const g=sigFor(dN);
-  return {L,lang,mr:p.mr||'',ref:refNo(p),title:F.title,sub:f.st==='fit'?F.subY:F.subN,sections:S,...sigBlock(g),docName:(g||{}).name||'',docLic:(g||{}).lic||'',doctor:dr,place:'Yogyakarta',date:dLong(+ex,lang),
+  return {L,lang,mr:p.mr||'',ref:refNo(p),title:F.title,sub:f.st==='fit'?F.subY:F.subN,sections:S,onePage:true,...sigBlock(g),docName:(g||{}).name||'',docLic:(g||{}).lic||'',doctor:dr,place:'Yogyakarta',date:dLong(+ex,lang),
     fname:((f.st==='fit'?'Fit_to_Fly_':'Not_Fit_to_Fly_')+(p.mr?p.mr+'_':'')+i.name.replace(/[^\w]+/g,'_')+'_'+new Date(+ex).toISOString().slice(0,10))};
 }
 const curDoc=p=>{try{unglueNames()}catch(e){}const l=DB.settings.resumeLang||'en';return R.doc==='ftf'?buildFtf(p,l):buildResume(p,l)};
@@ -1462,6 +1462,7 @@ async function ensurePdf(){
 async function exportPdf(R){
   await ensurePdf();
   const T=s=>String(s??'').replace(/→/g,'–').replace(/₂/g,'2').replace(/≥/g,'>=').replace(/≤/g,'<=').replace(/[^\x00-\xFF–—•·°’‘“”…]/g,'');
+  const build=K=>{
   const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
   const W=210,M=14,NAVY=[23,57,140],MUT=[90,105,135];
   const lw=58,lh=lw*170/635;
@@ -1471,7 +1472,7 @@ async function exportPdf(R){
   doc.setDrawColor(...NAVY);doc.setLineWidth(.9);doc.line(M,30,W-M,30);
   let y=36;
   const head=h=>{y+=2;if(y>262){doc.addPage();y=18}doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(...NAVY);doc.text(T(h.toUpperCase()),M,y);doc.setDrawColor(201,211,230);doc.setLineWidth(.3);doc.line(M,y+1.6,W-M,y+1.6);y+=4};
-  const base={margin:{left:M,right:M,top:16,bottom:16},styles:{font:'helvetica',fontSize:9,cellPadding:1.4,textColor:[13,26,51],lineColor:[201,211,230],lineWidth:.2,overflow:'linebreak'}};
+  const base={margin:{left:M,right:M,top:16,bottom:16},styles:{font:'helvetica',fontSize:9*K,cellPadding:1.4*K,textColor:[13,26,51],lineColor:[201,211,230],lineWidth:.2,overflow:'linebreak'}};
   const sub=h=>{y+=1;if(y>266){doc.addPage();y=18}doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(13,26,51);doc.text(T(h),M,y);y+=3};
   for(const s of R.sections){
     if(s.h)(s.lv===2?sub:head)(s.h);
@@ -1479,11 +1480,11 @@ async function exportPdf(R){
     if(s.kv)doc.autoTable({...base,startY:y,theme:'grid',body:s.kv.map(([k,v])=>[T(k),T(v)]),columnStyles:{0:{cellWidth:48,fillColor:[238,242,250],textColor:MUT}}});
     else if(s.table){const tot=s.widths.reduce((a,b)=>a+b,0),cw={};s.widths.forEach((w,k)=>cw[k]={cellWidth:w/tot*(W-2*M)});
       doc.autoTable({...base,startY:y,theme:'grid',head:[s.table.head.map(T)],body:s.table.rows.map(r=>r.map(T)),headStyles:{fillColor:NAVY,textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[247,249,253]},columnStyles:cw})}
-    else if(s.bullets)doc.autoTable({...base,startY:y,theme:'plain',body:s.bullets.map(b=>['•',T(b)]),styles:{...base.styles,lineWidth:0,cellPadding:{top:.4,bottom:.6,left:0,right:0},fontSize:9.5},columnStyles:{0:{cellWidth:5}}});
-    else doc.autoTable({...base,startY:y,theme:'plain',body:[[T(s.text)]],styles:{...base.styles,lineWidth:0,cellPadding:{top:.5,bottom:1,left:0,right:0},fontSize:s.strong?10.5:9.5,fontStyle:s.strong?'bold':'normal'}});
-    y=doc.lastAutoTable.finalY+(s.lv===2?3.5:5);
+    else if(s.bullets)doc.autoTable({...base,startY:y,theme:'plain',body:s.bullets.map(b=>['•',T(b)]),styles:{...base.styles,lineWidth:0,cellPadding:{top:.4*K,bottom:.6*K,left:0,right:0},fontSize:9.5*K},columnStyles:{0:{cellWidth:5}}});
+    else doc.autoTable({...base,startY:y,theme:'plain',body:[[T(s.text)]],styles:{...base.styles,lineWidth:0,cellPadding:{top:.5,bottom:1,left:0,right:0},fontSize:(s.strong?10.5:9.5)*K,fontStyle:s.strong?'bold':'normal'}});
+    y=doc.lastAutoTable.finalY+(s.lv===2?3.5:5)*K;
   }
-  if(y>250){doc.addPage();y=24}
+  if(y>246){doc.addPage();y=24}
   y+=2;doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(13,26,51);
   const c1=M+(W-2*M)/4,c2=M+3*(W-2*M)/4;
   doc.text(T(R.place+', '+R.date),c2,y,{align:'center'});doc.text(T(R.L.signDoc),c2,y+5,{align:'center'});
@@ -1494,6 +1495,9 @@ async function exportPdf(R){
   if(R.docLic&&!(R.docHide&&R.docSig)){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(T(R.L.lic+' '+R.docLic),c2,y+35,{align:'center'})}}
   const n=doc.getNumberOfPages();
   for(let k=1;k<=n;k++){doc.setPage(k);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(138,151,176);doc.text(T(R.L.gen),M,286.5,{maxWidth:W-2*M});doc.text(T(R.mr?R.L.mr+': '+R.mr:R.L.ref+' '+R.ref),M,290.5);doc.setFont('helvetica','bold');doc.setTextColor(...NAVY);doc.text(T(CONTACT),W/2,290.5,{align:'center'});doc.setFont('helvetica','normal');doc.setTextColor(138,151,176);doc.text(T(`${R.L.page} ${k} ${R.L.of} ${n}`),W-M,290.5,{align:'right'})}
+  return doc};
+  let doc=build(1);
+  if(R.onePage&&doc.getNumberOfPages()>1){for(const K of [.92,.85,.78]){const d2=build(K);doc=d2;if(d2.getNumberOfPages()===1)break}}
   return saveBlob(R.fname+'.pdf',doc.output('blob'));
 }
 
