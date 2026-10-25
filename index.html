@@ -391,7 +391,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.19-49';
+const APP_VERSION='v2026.10.25-50';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -576,11 +576,11 @@ $('#logoSide').src=LOGO_SRC;$('#logoTop').src=LOGO_SRC;
 /* ---------- routing ---------- */
 let R={view:'dash',id:null,tab:'ring',filter:'all',q:'',chartKey:'hr'};
 const go=(view,extra={})=>{Object.assign(R,{view},extra);render();window.scrollTo(0,0)};
-const NAV=[['dash','Dashboard','dash'],['list','Pasien','users'],['new','Baru','plus'],['monitor','Monitoring','pulse'],['set','Pengaturan','gear']];
+const NAV=[['dash','Dashboard','dash'],['list','Pasien','users'],['new','Baru','plus'],['monitor','Monitoring','pulse'],['rekap','Rekap','doc'],['set','Pengaturan','gear']];
 function renderNav(){
   const cur=R.view==='detail'||R.view==='report'?'list':R.view==='form'?'new':R.view;
   $('#sideNav').innerHTML=NAV.filter(n=>n[0]!=='new').map(n=>`<button class="${cur===n[0]?'on':''}" data-nav="${n[0]}">${ic(n[2])}${n[1]}</button>`).join('');
-  $('#bNav').innerHTML=NAV.map(n=>n[0]==='new'?`<button class="fab" data-act="new" aria-label="Pasien baru"><span class="circ">${ic('plus',26,2.6)}</span></button>`:`<button class="${cur===n[0]?'on':''}" data-nav="${n[0]}">${ic(n[2])}${n[1]}</button>`).join('');
+  $('#bNav').innerHTML=NAV.filter(n=>n[0]!=='rekap').map(n=>n[0]==='new'?`<button class="fab" data-act="new" aria-label="Pasien baru"><span class="circ">${ic('plus',26,2.6)}</span></button>`:`<button class="${cur===n[0]?'on':''}" data-nav="${n[0]}">${ic(n[2])}${n[1]}</button>`).join('');
   const act=DB.patients.filter(p=>p.status==='aktif').length;
   $('#topActive').textContent=act+' aktif';
   $('#sideFoot').innerHTML=`Tim jaga:<br><b>${esc(DB.settings.doctor||'—')}</b><br><b>${esc(DB.settings.nurse||'—')}</b><br><div class="syncbox" style="margin-top:8px"></div><div style="margin-top:6px;opacity:.7">${APP_VERSION}</div>`;
@@ -649,7 +649,7 @@ function vDash(){
   const hr=new Date().getHours(),greet=hr<11?'Selamat pagi':hr<15?'Selamat siang':hr<18?'Selamat sore':'Selamat malam';
   return `
   <div class="phead"><div><div class="eyebrow">${new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div><p>Ringkasan pasien hotel yang sedang dan sudah ditangani.</p></div>
-   <button class="btn pri" data-act="new">${ic('plus')}Pasien Baru</button></div>
+   <div class="row"><button class="btn" data-nav="rekap">${ic('doc')}Rekap Pasien</button><button class="btn pri" data-act="new">${ic('plus')}Pasien Baru</button></div></div>
   <div class="kpis">
     <div class="card kpi hero"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${I.pulse}</svg><div class="l">Sedang ditangani</div><div class="v">${act.length}</div></div>
     <div class="card kpi"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${I.check}</svg><div class="l">Selesai hari ini</div><div class="v">${today}</div></div>
@@ -1226,6 +1226,77 @@ function noteSheet(p){
     P={...r,t,doc:(p.ftfCert&&p.ftfCert.doctor)||p.team?.doctor||DB.settings.doctor||'',so};draw();
     $('#np_prev').scrollIntoView({behavior:'smooth',block:'start'})});
 }
+/* ---------- rekap pasien (untuk manajemen) ---------- */
+const dayKey=t=>{const d=new Date(t);return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate()};
+function visitDays(p){const ts=[p.createdAt,...(p.vitals||[]).map(x=>x.t),...(p.advice||[]).map(x=>x.t),...(p.actions||[]).map(x=>x.t),...(p.meds||[]).map(x=>x.t),p.exam?.t,p.outcome?.t].filter(Boolean).sort((a,b)=>a-b);
+  const out=[];ts.forEach(t=>{if(!out.some(x=>dayKey(x)===dayKey(t)))out.push(t)});return out}
+const ymd=t=>{const d=new Date(t);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+function rkRange(){const n=new Date(),m=R.rp||'month';
+  if(m==='month')return [ymd(new Date(n.getFullYear(),n.getMonth(),1)),ymd(new Date(n.getFullYear(),n.getMonth()+1,0))];
+  if(m==='last')return [ymd(new Date(n.getFullYear(),n.getMonth()-1,1)),ymd(new Date(n.getFullYear(),n.getMonth(),0))];
+  if(m==='year')return [n.getFullYear()+'-01-01',n.getFullYear()+'-12-31'];
+  return [R.rf||ymd(new Date(n.getFullYear(),n.getMonth(),1)),R.rt||ymd(n)]}
+const dJoinID=ts=>{if(!ts.length)return '';const ds=ts.map(t=>new Date(t));const same=ds.every(d=>d.getMonth()===ds[0].getMonth()&&d.getFullYear()===ds[0].getFullYear());
+  if(ts.length===1)return dLong(ts[0],'id');if(same){const ml=dLong(ts[0],'id').replace(/^\d+\s*/,''),dd=ds.map(d=>d.getDate());return dd.slice(0,-1).join(', ')+' & '+dd[dd.length-1]+' '+ml}
+  return ts.map(t=>dLong(t,'id')).join(', ')};
+function rekapData(){const [f,t]=rkRange(),fk=+f.replace(/-/g,''),tk=+t.replace(/-/g,'');
+  const rows=DB.patients.filter(p=>!p.demo).map(p=>{const vd=visitDays(p).filter(x=>{const k=dayKey(x);return k>=fk&&k<=tk});return {p,vd}}).filter(r=>r.vd.length).sort((a,b)=>a.vd[0]-b.vd[0])
+   .map((r,k)=>{const i=r.p.identity,a=ageOf(r.p);return {no:k+1,name:i.name||'',sex:i.sex==='L'?'Laki-laki':i.sex==='P'?'Perempuan':'',age:a!=null?a:'',nat:i.nationality||'',dates:dJoinID(r.vd),visits:r.vd.length,hotel:i.hotel||'',first:r.vd[0]}});
+  const cnt=key=>{const o={};rows.forEach(r=>{const k=r[key]||'—';o[k]=(o[k]||0)+1});return Object.entries(o).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))};
+  return {f,t,rows,total:rows.length,visits:rows.reduce((s,r)=>s+r.visits,0),byNat:cnt('nat'),byHotel:cnt('hotel'),bySex:cnt('sex'),label:f===t?dLong(f,'id'):dLong(f,'id')+' – '+dLong(t,'id')}}
+const RK_HEAD=['No','Nama Pasien','Jenis Kelamin','Usia','Negara','Tanggal On Call','Nama Hotel'];
+const rkRow=r=>[r.no,r.name,r.sex,r.age===''?'':r.age+' th',r.nat,r.dates,r.hotel];
+function vRekap(){const D=rekapData(),m=R.rp||'month';
+  const chip=(arr)=>arr.map(([k,n])=>`<span class="pill" style="background:var(--soft);border:1px solid var(--line)">${esc(k)} <b>${n}</b></span>`).join(' ')||'<span class="muted">–</span>';
+  return `<div class="phead"><div><h1>Rekap Pasien</h1><p>Rekapitulasi pasien on call untuk laporan ke manajemen.</p></div></div>
+  <div class="card pad" style="display:flex;flex-direction:column;gap:12px">
+   <div class="row" style="flex-wrap:wrap"><span class="eyebrow">Periode</span><div class="seg">${[['month','Bulan ini'],['last','Bulan lalu'],['year','Tahun ini'],['custom','Pilih tanggal']].map(([k,l])=>`<button class="${m===k?'on':''}" data-rp="${k}">${l}</button>`).join('')}</div></div>
+   ${m==='custom'?`<div class="fgrid"><div class="f"><label for="rk_f">Dari</label><input id="rk_f" type="date" value="${D.f}"></div><div class="f"><label for="rk_t">Sampai</label><input id="rk_t" type="date" value="${D.t}"></div></div>`:''}
+   <div class="row between" style="flex-wrap:wrap;gap:8px"><b>${esc(D.label)}</b><div class="row">${IN_FRAME?'<span class="xs muted">Ekspor aktif di aplikasi terpasang.</span>':`<button class="btn go" data-act="rkXlsx" ${D.total?'':'disabled'}>${ic('doc')}Excel</button><button class="btn pri" data-act="rkPdf" ${D.total?'':'disabled'}>${ic('install')}PDF</button>`}</div></div>
+  </div>
+  <div class="kpis">
+   <div class="card kpi hero"><div class="l">Jumlah pasien</div><div class="v">${D.total}</div></div>
+   <div class="card kpi"><div class="l">Jumlah kunjungan</div><div class="v">${D.visits}</div></div>
+   <div class="card kpi"><div class="l">Negara</div><div class="v">${D.byNat.length}</div></div>
+   <div class="card kpi"><div class="l">Hotel</div><div class="v">${D.byHotel.length}</div></div>
+  </div>
+  ${D.total?`<div class="card pad" style="display:flex;flex-direction:column;gap:8px">
+   <div><span class="eyebrow">Per negara</span><div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${chip(D.byNat)}</div></div>
+   <div><span class="eyebrow">Per hotel</span><div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${chip(D.byHotel)}</div></div>
+   <div><span class="eyebrow">Jenis kelamin</span><div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${chip(D.bySex)}</div></div></div>
+  <div class="card" style="overflow-x:auto"><table class="tbl" style="width:100%;border-collapse:collapse;font-size:13.5px"><thead><tr>${RK_HEAD.map(h=>`<th style="text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr></thead>
+   <tbody>${D.rows.map(r=>`<tr>${rkRow(r).map((c,k)=>`<td style="padding:9px 12px;border-bottom:1px solid var(--line);${k===5?'white-space:nowrap':''}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+  :`<div class="card pad muted" style="text-align:center">Tidak ada pasien pada periode ini.</div>`}`}
+function rekapXlsx(){const D=rekapData();const x=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const col=n=>String.fromCharCode(65+n);let r=0;const rows=[];
+  const cell=(c,v,s)=>typeof v==='number'?`<c r="${col(c)}${r}"${s?` s="${s}"`:''}><v>${v}</v></c>`:`<c r="${col(c)}${r}" t="inlineStr"${s?` s="${s}"`:''}><is><t xml:space="preserve">${x(v)}</t></is></c>`;
+  const add=(cells,s)=>{r++;rows.push(`<row r="${r}">${cells.map((v,k)=>v===null?'':cell(k,v,s)).join('')}</row>`)};
+  add(['REKAP PASIEN ON CALL — MITRA 911'],3);add(['Periode: '+D.label]);add(['Jumlah pasien: '+D.total+' · Jumlah kunjungan: '+D.visits]);r++;
+  add(RK_HEAD,1);const r0=r+1;D.rows.forEach(o=>add(rkRow(o).map((v,k)=>k===3?(o.age===''?'':Number(o.age)):v),2));const r1=r;
+  r++;add(['Ringkasan per negara'],3);D.byNat.forEach(([k,n])=>add([null,k,n]));r++;add(['Ringkasan per hotel'],3);D.byHotel.forEach(([k,n])=>add([null,k,n]));r++;add(['Jenis kelamin'],3);D.bySex.forEach(([k,n])=>add([null,k,n]));
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="30" customWidth="1"/><col min="3" max="3" width="15" customWidth="1"/><col min="4" max="4" width="8" customWidth="1"/><col min="5" max="5" width="18" customWidth="1"/><col min="6" max="6" width="26" customWidth="1"/><col min="7" max="7" width="34" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData>${D.rows.length?`<autoFilter ref="A${r0-1}:G${r1}"/>`:''}</worksheet>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="12"/><color rgb="FF17398C"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF17398C"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"><color rgb="FFC9D3E6"/></left><right style="thin"><color rgb="FFC9D3E6"/></right><top style="thin"><color rgb="FFC9D3E6"/></top><bottom style="thin"><color rgb="FFC9D3E6"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const files=[
+   {name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
+   {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+   {name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Rekap Pasien" sheetId="1" r:id="rId1"/></sheets>'+(D.rows.length?`<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'Rekap Pasien'!$A$${r0-1}:$G$${r1}</definedName></definedNames>`:'')+'</workbook>'},
+   {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+   {name:'xl/worksheets/sheet1.xml',data:sheet},{name:'xl/styles.xml',data:styles}];
+  const blob=new Blob([zip(files)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  return saveBlob('Rekap_Pasien_'+D.f+'_sd_'+D.t+'.xlsx',blob)}
+async function rekapPdf(){await ensurePdf();const D=rekapData();
+  const T=s=>String(s??'').replace(/[^\x00-\xFF–—•·°’‘“”…]/g,'');
+  const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'landscape'}),W=297,M=12,NAVY=[23,57,140];
+  doc.addImage(LOGO_WHITE,'PNG',M,9,50,50*170/635);
+  doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(...NAVY);doc.text('REKAP PASIEN ON CALL',W-M,15,{align:'right'});
+  doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(90,105,135);doc.text(T('Periode: '+D.label),W-M,20.5,{align:'right'});
+  doc.setTextColor(13,26,51);doc.setFont('helvetica','bold');doc.text(T('Jumlah pasien: '+D.total+'   ·   Jumlah kunjungan: '+D.visits),W-M,25.5,{align:'right'});
+  doc.setDrawColor(...NAVY);doc.setLineWidth(.8);doc.line(M,29,W-M,29);
+  doc.autoTable({startY:33,margin:{left:M,right:M,bottom:16},head:[RK_HEAD],body:D.rows.map(r=>rkRow(r).map(T)),theme:'grid',styles:{font:'helvetica',fontSize:9,cellPadding:1.6,textColor:[13,26,51],lineColor:[201,211,230],lineWidth:.2},headStyles:{fillColor:NAVY,textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[247,249,253]},columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:58},2:{cellWidth:26},3:{cellWidth:16,halign:'center'},4:{cellWidth:32},5:{cellWidth:52},6:{cellWidth:'auto'}}});
+  let y=doc.lastAutoTable.finalY+7;const sm=(title,arr,x,w)=>{doc.autoTable({startY:y,margin:{left:x,right:W-x-w,bottom:16},head:[[T(title),'Jumlah']],body:arr.map(([k,n])=>[T(k),String(n)]),theme:'grid',styles:{font:'helvetica',fontSize:8.5,cellPadding:1.3,lineColor:[201,211,230],lineWidth:.2},headStyles:{fillColor:[238,242,250],textColor:NAVY,fontStyle:'bold'},columnStyles:{1:{cellWidth:18,halign:'center'}}});return doc.lastAutoTable.finalY};
+  if(y>165){doc.addPage();y=18}const w3=(W-2*M-12)/3;const y1=sm('Negara',D.byNat,M,w3),y2=sm('Hotel',D.byHotel,M+w3+6,w3),y3=sm('Jenis Kelamin',D.bySex,M+2*(w3+6),w3);
+  const n=doc.getNumberOfPages();for(let k=1;k<=n;k++){doc.setPage(k);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(138,151,176);doc.text(T('Dicetak '+dLong(Date.now(),'id')+' '+fTime(Date.now())+' · Mitra 911 · '+CONTACT),M,203);doc.text(`Hal. ${k} dari ${n}`,W-M,203,{align:'right'})}
+  return saveBlob('Rekap_Pasien_'+D.f+'_sd_'+D.t+'.pdf',doc.output('blob'))}
 /* ---------- surat Fit to Fly ---------- */
 const FTF_AS=[['wchr','Wheelchair assistance at the airport (WCHR)','Bantuan kursi roda di bandara (WCHR)'],['comp','Should travel with a companion','Sebaiknya didampingi pendamping'],['medesc','Medical escort required during the flight','Perlu pendamping medis selama penerbangan'],['o2','Supplemental oxygen during the flight (airline MEDIF form required)','Oksigen tambahan selama penerbangan (perlu formulir MEDIF maskapai)'],['aisle','Aisle seat near the lavatory','Kursi lorong dekat toilet'],['leg','Extra legroom / able to elevate the leg','Ruang kaki ekstra / kaki dapat ditinggikan'],['meds','Prescribed medications to be carried in hand luggage','Obat resep dibawa di bagasi kabin'],['hydr','Maintain good hydration and mobilise regularly during the flight','Cukup minum dan rutin bergerak selama penerbangan']];
 const FTF_L={
@@ -1586,7 +1657,7 @@ async function exportTimelinePng(p){
 function render(){
   renderNav();
   const v=R.view;
-  $('#view').innerHTML=v==='dash'?vDash():v==='list'?vList():v==='detail'?vDetail():v==='form'?vForm():v==='monitor'?vMonitor():v==='report'?vReport():vSet();
+  $('#view').innerHTML=v==='dash'?vDash():v==='list'?vList():v==='detail'?vDetail():v==='form'?vForm():v==='monitor'?vMonitor():v==='report'?vReport():v==='rekap'?vRekap():vSet();
   if(v==='list'){const q=$('#q');q.addEventListener('input',()=>{R.q=q.value;const pos=q.selectionStart;render();const n=$('#q');n.focus();n.setSelectionRange(pos,pos)})}
   if(v==='form'){$('#pform').addEventListener('submit',savePatient);
     const pp=R.id?getP(R.id):null;FORM.items=(pp?.complaint.items||[]).slice();drawCmp();
@@ -1600,6 +1671,7 @@ function render(){
     if(t.value.trim())p.en[f.key]={src:f.src,en:t.value,edited:true};else delete p.en[f.key];save();clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(p))},300)}))}
   {const nb=$('#nameBlank');if(v==='report'&&nb)nb.addEventListener('change',()=>{DB.settings.nameBlank=nb.checked;persist();render()})}
   if(v==='report'&&R.doc==='ftf'){let tm;$$('[data-ftf-v]').forEach(t=>t.addEventListener('input',()=>{const p=getP(R.id);if(!p)return;const m={...ftfData(p).vsMan},x=t.value.replace(',','.').trim();m[t.dataset.ftfV]=x===''?'':(isNaN(+x)?x:+x);ftfSet(p,'vsMan',m);clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(getP(R.id)))},250)}));$$('[data-ftf-f]').forEach(t=>{const h=()=>{const p=getP(R.id);if(!p)return;let x=t.type==='checkbox'?t.checked:t.value;if(t.dataset.ftfF==='exam')x=fromLocalInput(x)||Date.now();if(t.dataset.ftfF==='valid')x=x===''?0:Math.max(0,+x);ftfSet(p,t.dataset.ftfF,x);if(t.dataset.ftfF==='vsId')return render();clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(getP(R.id)))},250)};t.addEventListener('input',h);t.addEventListener('change',h)})}
+  if(v==='rekap'){['rk_f','rk_t'].forEach(id=>{const e=$('#'+id);e&&e.addEventListener('change',()=>{R.rf=val('rk_f');R.rt=val('rk_t');render()})})}
   if(v==='set'){const r=$('#restore');r&&r.addEventListener('change',restore);const sf=$('#stampFile');sf&&sf.addEventListener('change',stampUpload);const so=$('#stampOn');so&&so.addEventListener('change',()=>{DB.settings.stampOff=!so.checked;persist();toast(so.checked?'Cap akan dicetak':'Cap tidak dicetak')})}
   if(v==='detail'&&R.tab==='ttv'){const s=$('#monint');s&&s.addEventListener('change',()=>{MON.int=+s.value;if(MON.id){MON.next=Date.now()+MON.int*60000;MON.due=false}render()})}
 }
@@ -1811,6 +1883,7 @@ document.addEventListener('click',e=>{
   if('back' in d)return R.id?go('detail',{id:R.id}):go('dash');
   if('backDetail' in d)return go('detail',{id:R.id});
   if(d.rlang){DB.settings.resumeLang=d.rlang;save();return render()}
+  if(d.rp){R.rp=d.rp;return render()}
   if(d.sigmode){DB.settings.sigMode=d.sigmode;persist();return render()}
   if(d.rdoc){R.doc=d.rdoc==='ftf'?'ftf':'';return render()}
   if(d.ftfst){const p=getP(R.id);if(p)ftfSet(p,'st',d.ftfst);return render()}
@@ -1842,6 +1915,8 @@ document.addEventListener('click',e=>{
     case 'report':return go('report',{id:R.id,doc:''});
     case 'ftfdoc':return go('report',{id:R.id,doc:'ftf'});
     case 'pasteNote':return noteSheet(p);
+    case 'rkXlsx':try{rekapXlsx()}catch(err){toast('Gagal membuat Excel: '+err.message)}return;
+    case 'rkPdf':toast('Menyiapkan PDF…');rekapPdf().catch(err=>toast('Gagal membuat PDF: '+err.message));return;
     case 'print':return window.print();
     case 'trAuto':return translatePatient(p,false);
     case 'trForce':return translatePatient(p,true);
