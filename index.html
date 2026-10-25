@@ -391,7 +391,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.25-50';
+const APP_VERSION='v2026.10.25-51';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -1262,8 +1262,7 @@ function vRekap(){const D=rekapData(),m=R.rp||'month';
   </div>
   ${D.total?`<div class="card pad" style="display:flex;flex-direction:column;gap:8px">
    <div><span class="eyebrow">Per negara</span><div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${chip(D.byNat)}</div></div>
-   <div><span class="eyebrow">Per hotel</span><div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${chip(D.byHotel)}</div></div>
-   <div><span class="eyebrow">Jenis kelamin</span><div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${chip(D.bySex)}</div></div></div>
+   <div><span class="eyebrow">Per hotel</span><div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${chip(D.byHotel)}</div></div></div>
   <div class="card" style="overflow-x:auto"><table class="tbl" style="width:100%;border-collapse:collapse;font-size:13.5px"><thead><tr>${RK_HEAD.map(h=>`<th style="text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr></thead>
    <tbody>${D.rows.map(r=>`<tr>${rkRow(r).map((c,k)=>`<td style="padding:9px 12px;border-bottom:1px solid var(--line);${k===5?'white-space:nowrap':''}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
   :`<div class="card pad muted" style="text-align:center">Tidak ada pasien pada periode ini.</div>`}`}
@@ -1273,7 +1272,7 @@ function rekapXlsx(){const D=rekapData();const x=s=>String(s??'').replace(/&/g,'
   const add=(cells,s)=>{r++;rows.push(`<row r="${r}">${cells.map((v,k)=>v===null?'':cell(k,v,s)).join('')}</row>`)};
   add(['REKAP PASIEN ON CALL — MITRA 911'],3);add(['Periode: '+D.label]);add(['Jumlah pasien: '+D.total+' · Jumlah kunjungan: '+D.visits]);r++;
   add(RK_HEAD,1);const r0=r+1;D.rows.forEach(o=>add(rkRow(o).map((v,k)=>k===3?(o.age===''?'':Number(o.age)):v),2));const r1=r;
-  r++;add(['Ringkasan per negara'],3);D.byNat.forEach(([k,n])=>add([null,k,n]));r++;add(['Ringkasan per hotel'],3);D.byHotel.forEach(([k,n])=>add([null,k,n]));r++;add(['Jenis kelamin'],3);D.bySex.forEach(([k,n])=>add([null,k,n]));
+  r++;add(['Ringkasan per negara'],3);D.byNat.forEach(([k,n])=>add([null,k,n]));r++;add(['Ringkasan per hotel'],3);D.byHotel.forEach(([k,n])=>add([null,k,n]));
   const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="30" customWidth="1"/><col min="3" max="3" width="15" customWidth="1"/><col min="4" max="4" width="8" customWidth="1"/><col min="5" max="5" width="18" customWidth="1"/><col min="6" max="6" width="26" customWidth="1"/><col min="7" max="7" width="34" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData>${D.rows.length?`<autoFilter ref="A${r0-1}:G${r1}"/>`:''}</worksheet>`;
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="12"/><color rgb="FF17398C"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF17398C"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"><color rgb="FFC9D3E6"/></left><right style="thin"><color rgb="FFC9D3E6"/></right><top style="thin"><color rgb="FFC9D3E6"/></top><bottom style="thin"><color rgb="FFC9D3E6"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const files=[
@@ -1294,7 +1293,7 @@ async function rekapPdf(){await ensurePdf();const D=rekapData();
   doc.setDrawColor(...NAVY);doc.setLineWidth(.8);doc.line(M,29,W-M,29);
   doc.autoTable({startY:33,margin:{left:M,right:M,bottom:16},head:[RK_HEAD],body:D.rows.map(r=>rkRow(r).map(T)),theme:'grid',styles:{font:'helvetica',fontSize:9,cellPadding:1.6,textColor:[13,26,51],lineColor:[201,211,230],lineWidth:.2},headStyles:{fillColor:NAVY,textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[247,249,253]},columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:58},2:{cellWidth:26},3:{cellWidth:16,halign:'center'},4:{cellWidth:32},5:{cellWidth:52},6:{cellWidth:'auto'}}});
   let y=doc.lastAutoTable.finalY+7;const sm=(title,arr,x,w)=>{doc.autoTable({startY:y,margin:{left:x,right:W-x-w,bottom:16},head:[[T(title),'Jumlah']],body:arr.map(([k,n])=>[T(k),String(n)]),theme:'grid',styles:{font:'helvetica',fontSize:8.5,cellPadding:1.3,lineColor:[201,211,230],lineWidth:.2},headStyles:{fillColor:[238,242,250],textColor:NAVY,fontStyle:'bold'},columnStyles:{1:{cellWidth:18,halign:'center'}}});return doc.lastAutoTable.finalY};
-  if(y>165){doc.addPage();y=18}const w3=(W-2*M-12)/3;const y1=sm('Negara',D.byNat,M,w3),y2=sm('Hotel',D.byHotel,M+w3+6,w3),y3=sm('Jenis Kelamin',D.bySex,M+2*(w3+6),w3);
+  if(y>165){doc.addPage();y=18}const w3=(W-2*M-12)/3;sm('Negara',D.byNat,M,w3);sm('Hotel',D.byHotel,M+w3+6,w3);
   const n=doc.getNumberOfPages();for(let k=1;k<=n;k++){doc.setPage(k);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(138,151,176);doc.text(T('Dicetak '+dLong(Date.now(),'id')+' '+fTime(Date.now())+' · Mitra 911 · '+CONTACT),M,203);doc.text(`Hal. ${k} dari ${n}`,W-M,203,{align:'right'})}
   return saveBlob('Rekap_Pasien_'+D.f+'_sd_'+D.t+'.pdf',doc.output('blob'))}
 /* ---------- surat Fit to Fly ---------- */
