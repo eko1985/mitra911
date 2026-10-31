@@ -391,7 +391,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.25-51';
+const APP_VERSION='v2026.10.31-54';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -1099,10 +1099,10 @@ function withStamp(g){
   const gi=imgOf(g.img);if(!gi)return g;
   const key=g.img.length+'|'+g.img.slice(-60)+'|'+st.img.length+'|'+st.img.slice(-60);
   let c=COMP.get(key);if(c)return Object.assign({},g,c);
-  const H=Math.max(g.h,180),k=H/g.h,gw=g.w*k,sh=H*.5,sw=sh*st.w/st.h,sx=sw*.66,W=Math.max(sw+8,sx+gw);
+  const H=Math.max(g.h,180),k=H/g.h,gw=g.w*k,sh=H*.5,sw=sh*st.w/st.h,wide=gw>sw*1.6,sx=wide?0:sw*.66,W=Math.max(sw+8,sx+gw);
   const cv=document.createElement('canvas');cv.width=Math.round(W);cv.height=Math.round(H);const x=cv.getContext('2d');
   x.drawImage(gi,sx,0,gw,H);
-  x.save();x.globalAlpha=.9;x.globalCompositeOperation='multiply';x.translate(4+sw/2,H*.4);x.rotate(-3*Math.PI/180);x.drawImage(si,-sw/2,-sh/2,sw,sh);x.restore();
+  x.save();x.globalAlpha=.9;x.globalCompositeOperation='multiply';x.translate(4+sw/2,wide?H*.5:H*.4);x.rotate(-3*Math.PI/180);x.drawImage(si,-sw/2,-sh/2,sw,sh);x.restore();
   c={img:cv.toDataURL('image/png'),w:cv.width,h:cv.height};COMP.set(key,c);return Object.assign({},g,c);
 }
 /* mode tanda tangan di laporan: both = TTD + cap digital, stamp = cap saja (TTD basah), none = kosong (TTD & cap basah) */
@@ -1118,9 +1118,21 @@ function sigBlock0(g){const m=DB.settings.sigMode||'both';
   if(m==='none')return {docSig:null,docHide:false,wet:true};
   if(m==='stamp')return {docSig:stampOnly(),docHide:false,wet:true};
   return {docSig:withStamp(g),docHide:!!(g&&g.stamp)}}
+function cleanStamp(src){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>{
+  const sc=Math.min(1,1600/Math.max(im.width,im.height)),w=Math.round(im.width*sc),h=Math.round(im.height*sc);
+  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(im,0,0,w,h);
+  const d=x.getImageData(0,0,w,h),p=d.data,rows=new Uint32Array(h),cols=new Uint32Array(w);
+  for(let i=0;i<p.length;i+=4){const r=p[i],g=p[i+1],b=p[i+2],a=p[i+3],mx=Math.max(r,g,b),mn=Math.min(r,g,b),sat=mx-mn;
+    if(a<20||sat<40||mx>245&&sat<60){p[i+3]=0;continue}
+    p[i+3]=Math.min(a,Math.round(Math.min(1,(sat-40)/70)*255));const q=i/4;rows[Math.floor(q/w)]++;cols[q%w]++}
+  const lim=(arr,n)=>{const t=Math.max(2,n*.004);let a=0,b=arr.length-1;while(a<arr.length&&arr[a]<t)a++;while(b>a&&arr[b]<t)b--;return [a,b]};
+  const [y0,y1]=lim(rows,w),[x0,x1]=lim(cols,h);if(x1<=x0||y1<=y0)return rej(new Error('Cap tidak terbaca. Gunakan foto cap berwarna di kertas putih.'));
+  x.putImageData(d,0,0);const pad=6,X0=Math.max(0,x0-pad),Y0=Math.max(0,y0-pad),cw=Math.min(w-1,x1+pad)-X0+1,ch=Math.min(h-1,y1+pad)-Y0+1,s2=Math.min(1200/cw,400/ch,1);
+  const o=document.createElement('canvas');o.width=Math.round(cw*s2);o.height=Math.round(ch*s2);o.getContext('2d').drawImage(c,X0,Y0,cw,ch,0,0,o.width,o.height);
+  res({img:o.toDataURL('image/png'),w:o.width,h:o.height})};im.onerror=()=>rej(new Error('Gambar tidak bisa dibuka'));im.src=src})}
 async function stampUpload(e){const f=e.target.files[0];if(!f)return;
   try{const src=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)});
-    const r=await cleanSig(src);DB.settings.stamp=r;DB.settings.stampOff=false;COMP.clear();persist();preloadSig();toast('Cap basah tersimpan');render()}catch(err){toast(err.message)}}
+    const r=await cleanStamp(src);DB.settings.stamp=r;DB.settings.stampOff=false;COMP.clear();persist();preloadSig();toast('Cap basah tersimpan');render()}catch(err){toast(err.message)}}
 /* perbaiki nama dokter yang tertempel nama default (mis. "…, M.K.MDr. Irwan Taufik") */
 function unglueNames(){
   const known=[...new Set([DB.settings.doctor,...DB.patients.map(p=>p.team&&p.team.doctor)].filter(n=>n&&n.trim().length>4).map(n=>n.trim()))];
@@ -1244,6 +1256,8 @@ function rekapData(){const [f,t]=rkRange(),fk=+f.replace(/-/g,''),tk=+t.replace(
    .map((r,k)=>{const i=r.p.identity,a=ageOf(r.p);return {no:k+1,name:i.name||'',sex:i.sex==='L'?'Laki-laki':i.sex==='P'?'Perempuan':'',age:a!=null?a:'',nat:i.nationality||'',dates:dJoinID(r.vd),visits:r.vd.length,hotel:i.hotel||'',first:r.vd[0]}});
   const cnt=key=>{const o={};rows.forEach(r=>{const k=r[key]||'—';o[k]=(o[k]||0)+1});return Object.entries(o).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))};
   return {f,t,rows,total:rows.length,visits:rows.reduce((s,r)=>s+r.visits,0),byNat:cnt('nat'),byHotel:cnt('hotel'),bySex:cnt('sex'),label:f===t?dLong(f,'id'):dLong(f,'id')+' – '+dLong(t,'id')}}
+function rkSigner(){const v=DB.settings.rkSigner||'',sg=DB.settings.signatures||[];if(v==='__none')return null;
+  const g=(v&&sg.find(x=>x.name===v))||sigFor(DB.settings.doctor)||sg[0]||null;return g?{g,name:g.name,lic:g.lic||''}:(DB.settings.doctor?{g:null,name:DB.settings.doctor,lic:''}:null)}
 const RK_HEAD=['No','Nama Pasien','Jenis Kelamin','Usia','Negara','Tanggal On Call','Nama Hotel'];
 const rkRow=r=>[r.no,r.name,r.sex,r.age===''?'':r.age+' th',r.nat,r.dates,r.hotel];
 function vRekap(){const D=rekapData(),m=R.rp||'month';
@@ -1252,7 +1266,7 @@ function vRekap(){const D=rekapData(),m=R.rp||'month';
   <div class="card pad" style="display:flex;flex-direction:column;gap:12px">
    <div class="row" style="flex-wrap:wrap"><span class="eyebrow">Periode</span><div class="seg">${[['month','Bulan ini'],['last','Bulan lalu'],['year','Tahun ini'],['custom','Pilih tanggal']].map(([k,l])=>`<button class="${m===k?'on':''}" data-rp="${k}">${l}</button>`).join('')}</div></div>
    ${m==='custom'?`<div class="fgrid"><div class="f"><label for="rk_f">Dari</label><input id="rk_f" type="date" value="${D.f}"></div><div class="f"><label for="rk_t">Sampai</label><input id="rk_t" type="date" value="${D.t}"></div></div>`:''}
-   <div class="row between" style="flex-wrap:wrap;gap:8px"><b>${esc(D.label)}</b><div class="row">${IN_FRAME?'<span class="xs muted">Ekspor aktif di aplikasi terpasang.</span>':`<button class="btn go" data-act="rkXlsx" ${D.total?'':'disabled'}>${ic('doc')}Excel</button><button class="btn pri" data-act="rkPdf" ${D.total?'':'disabled'}>${ic('install')}PDF</button>`}</div></div>
+   <div class="row between" style="flex-wrap:wrap;gap:8px"><b>${esc(D.label)}</b><label class="row" style="gap:6px;font-size:13.5px">Tanda tangan:<select id="rk_sig" style="width:auto">${[["","Otomatis (dokter default)"],...(DB.settings.signatures||[]).map(g=>[g.name,g.name]),["__none","Tanpa tanda tangan"]].map(([v,l])=>`<option value="${esc(v)}" ${(DB.settings.rkSigner||"")===v?"selected":""}>${esc(l)}</option>`).join("")}</select></label><div class="row">${IN_FRAME?'<span class="xs muted">Ekspor aktif di aplikasi terpasang.</span>':`<button class="btn go" data-act="rkXlsx" ${D.total?'':'disabled'}>${ic('doc')}Excel</button><button class="btn pri" data-act="rkPdf" ${D.total?'':'disabled'}>${ic('install')}PDF</button>`}</div></div>
   </div>
   <div class="kpis">
    <div class="card kpi hero"><div class="l">Jumlah pasien</div><div class="v">${D.total}</div></div>
@@ -1272,7 +1286,7 @@ function rekapXlsx(){const D=rekapData();const x=s=>String(s??'').replace(/&/g,'
   const add=(cells,s)=>{r++;rows.push(`<row r="${r}">${cells.map((v,k)=>v===null?'':cell(k,v,s)).join('')}</row>`)};
   add(['REKAP PASIEN ON CALL — MITRA 911'],3);add(['Periode: '+D.label]);add(['Jumlah pasien: '+D.total+' · Jumlah kunjungan: '+D.visits]);r++;
   add(RK_HEAD,1);const r0=r+1;D.rows.forEach(o=>add(rkRow(o).map((v,k)=>k===3?(o.age===''?'':Number(o.age)):v),2));const r1=r;
-  r++;add(['Ringkasan per negara'],3);D.byNat.forEach(([k,n])=>add([null,k,n]));r++;add(['Ringkasan per hotel'],3);D.byHotel.forEach(([k,n])=>add([null,k,n]));
+  r++;add(['Ringkasan per negara'],3);D.byNat.forEach(([k,n])=>add([null,k,n]));r++;add(['Ringkasan per hotel'],3);D.byHotel.forEach(([k,n])=>add([null,k,n]));{const S=rkSigner();if(S){r++;add([null,null,null,null,null,'Yogyakarta, '+dLong(Date.now(),'id')]);add([null,null,null,null,null,'Dokter Penanggung Jawab']);r+=3;add([null,null,null,null,null,S.name],3);if(S.lic)add([null,null,null,null,null,'No. SIP: '+S.lic])}}
   const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="30" customWidth="1"/><col min="3" max="3" width="15" customWidth="1"/><col min="4" max="4" width="8" customWidth="1"/><col min="5" max="5" width="18" customWidth="1"/><col min="6" max="6" width="26" customWidth="1"/><col min="7" max="7" width="34" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData>${D.rows.length?`<autoFilter ref="A${r0-1}:G${r1}"/>`:''}</worksheet>`;
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="12"/><color rgb="FF17398C"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF17398C"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"><color rgb="FFC9D3E6"/></left><right style="thin"><color rgb="FFC9D3E6"/></right><top style="thin"><color rgb="FFC9D3E6"/></top><bottom style="thin"><color rgb="FFC9D3E6"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const files=[
@@ -1293,7 +1307,14 @@ async function rekapPdf(){await ensurePdf();const D=rekapData();
   doc.setDrawColor(...NAVY);doc.setLineWidth(.8);doc.line(M,29,W-M,29);
   doc.autoTable({startY:33,margin:{left:M,right:M,bottom:16},head:[RK_HEAD],body:D.rows.map(r=>rkRow(r).map(T)),theme:'grid',styles:{font:'helvetica',fontSize:9,cellPadding:1.6,textColor:[13,26,51],lineColor:[201,211,230],lineWidth:.2},headStyles:{fillColor:NAVY,textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[247,249,253]},columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:58},2:{cellWidth:26},3:{cellWidth:16,halign:'center'},4:{cellWidth:32},5:{cellWidth:52},6:{cellWidth:'auto'}}});
   let y=doc.lastAutoTable.finalY+7;const sm=(title,arr,x,w)=>{doc.autoTable({startY:y,margin:{left:x,right:W-x-w,bottom:16},head:[[T(title),'Jumlah']],body:arr.map(([k,n])=>[T(k),String(n)]),theme:'grid',styles:{font:'helvetica',fontSize:8.5,cellPadding:1.3,lineColor:[201,211,230],lineWidth:.2},headStyles:{fillColor:[238,242,250],textColor:NAVY,fontStyle:'bold'},columnStyles:{1:{cellWidth:18,halign:'center'}}});return doc.lastAutoTable.finalY};
-  if(y>165){doc.addPage();y=18}const w3=(W-2*M-12)/3;sm('Negara',D.byNat,M,w3);sm('Hotel',D.byHotel,M+w3+6,w3);
+  if(y>165){doc.addPage();y=18}const w3=(W-2*M-12)/3;const pg0=doc.getNumberOfPages();const ya=sm('Negara',D.byNat,M,w3),yb=sm('Hotel',D.byHotel,M+w3+6,w3);
+  const S=rkSigner();if(S){let sy=y;const cx=M+2*(w3+6)+w3/2;if(sy>155){doc.addPage();sy=18}else doc.setPage(pg0);doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(13,26,51);
+    doc.text(T('Yogyakarta, '+dLong(Date.now(),'id')),cx,sy+4,{align:'center'});doc.text('Dokter Penanggung Jawab',cx,sy+9,{align:'center'});
+    const img=S.g?withStamp(S.g):(DB.settings.stamp&&!DB.settings.stampOff?stampOnly():null);
+    if(img){let ih=20,iw=ih*img.w/img.h;if(iw>w3){iw=w3;ih=iw*img.h/img.w}doc.addImage(img.img,'PNG',cx-iw/2,sy+31-ih,iw,ih)}
+    const hideTxt=!!(S.g&&S.g.stamp&&img);if(!hideTxt){doc.setDrawColor(13,26,51);doc.setLineWidth(.3);doc.line(cx-32,sy+32.5,cx+32,sy+32.5);
+    doc.setFont('helvetica','bold');doc.text(T(S.name),cx,sy+37,{align:'center'});}
+    if(S.lic&&!hideTxt){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(T('No. SIP: '+S.lic),cx,sy+42,{align:'center'})}}
   const n=doc.getNumberOfPages();for(let k=1;k<=n;k++){doc.setPage(k);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(138,151,176);doc.text(T('Dicetak '+dLong(Date.now(),'id')+' '+fTime(Date.now())+' · Mitra 911 · '+CONTACT),M,203);doc.text(`Hal. ${k} dari ${n}`,W-M,203,{align:'right'})}
   return saveBlob('Rekap_Pasien_'+D.f+'_sd_'+D.t+'.pdf',doc.output('blob'))}
 /* ---------- surat Fit to Fly ---------- */
@@ -1670,7 +1691,7 @@ function render(){
     if(t.value.trim())p.en[f.key]={src:f.src,en:t.value,edited:true};else delete p.en[f.key];save();clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(p))},300)}))}
   {const nb=$('#nameBlank');if(v==='report'&&nb)nb.addEventListener('change',()=>{DB.settings.nameBlank=nb.checked;persist();render()})}
   if(v==='report'&&R.doc==='ftf'){let tm;$$('[data-ftf-v]').forEach(t=>t.addEventListener('input',()=>{const p=getP(R.id);if(!p)return;const m={...ftfData(p).vsMan},x=t.value.replace(',','.').trim();m[t.dataset.ftfV]=x===''?'':(isNaN(+x)?x:+x);ftfSet(p,'vsMan',m);clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(getP(R.id)))},250)}));$$('[data-ftf-f]').forEach(t=>{const h=()=>{const p=getP(R.id);if(!p)return;let x=t.type==='checkbox'?t.checked:t.value;if(t.dataset.ftfF==='exam')x=fromLocalInput(x)||Date.now();if(t.dataset.ftfF==='valid')x=x===''?0:Math.max(0,+x);ftfSet(p,t.dataset.ftfF,x);if(t.dataset.ftfF==='vsId')return render();clearTimeout(tm);tm=setTimeout(()=>{$('#repdoc').innerHTML=resumeHTML(curDoc(getP(R.id)))},250)};t.addEventListener('input',h);t.addEventListener('change',h)})}
-  if(v==='rekap'){['rk_f','rk_t'].forEach(id=>{const e=$('#'+id);e&&e.addEventListener('change',()=>{R.rf=val('rk_f');R.rt=val('rk_t');render()})})}
+  if(v==='rekap'){const rs=$('#rk_sig');rs&&rs.addEventListener('change',()=>{DB.settings.rkSigner=rs.value;persist();toast('Penanda tangan rekap disimpan')});['rk_f','rk_t'].forEach(id=>{const e=$('#'+id);e&&e.addEventListener('change',()=>{R.rf=val('rk_f');R.rt=val('rk_t');render()})})}
   if(v==='set'){const r=$('#restore');r&&r.addEventListener('change',restore);const sf=$('#stampFile');sf&&sf.addEventListener('change',stampUpload);const so=$('#stampOn');so&&so.addEventListener('change',()=>{DB.settings.stampOff=!so.checked;persist();toast(so.checked?'Cap akan dicetak':'Cap tidak dicetak')})}
   if(v==='detail'&&R.tab==='ttv'){const s=$('#monint');s&&s.addEventListener('change',()=>{MON.int=+s.value;if(MON.id){MON.next=Date.now()+MON.int*60000;MON.due=false}render()})}
 }
