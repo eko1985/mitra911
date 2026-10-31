@@ -391,7 +391,7 @@ let SNAP=new Map();
 const snapKey=p=>{const{updatedAt,...r}=p;return JSON.stringify(r)};
 function buildSnap(){SNAP=new Map(DB.patients.filter(p=>!p.demo).map(p=>[p.id,snapKey(p)]))}
 const SYNC={busy:false,err:'',timer:null};
-const APP_VERSION='v2026.10.31-54';
+const APP_VERSION='v2026.10.31-55';
 const DEFAULT_SERVER='https://script.google.com/macros/s/AKfycbx5PRzgZBCRvnC2RWUwge4uHkmfJtuh42agbuxOXb-DHIy4XyQ15fQJRy5Xxd6E-dIlSA/exec';
 const srv=()=>DB.settings.serverKey?((DB.settings.serverUrl||'').trim()||DEFAULT_SERVER):'';
 function ensureSync(){DB.sync=Object.assign({lastSync:0,lastOk:0,dirty:[],tomb:[]},DB.sync||{})}
@@ -1113,7 +1113,7 @@ function stampOnly(){const st=DB.settings.stamp;if(!st)return null;const si=imgO
   const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
   x.save();x.globalAlpha=.9;x.translate(4+sw/2,H*.4);x.rotate(-3*Math.PI/180);x.drawImage(si,-sw/2,-sh/2,sw,sh);x.restore();
   c={img:cv.toDataURL('image/png'),w:W,h:H};COMP.set(key,c);return c}
-function sigBlock(g){const nb=!!DB.settings.nameBlank;const r=sigBlock0(g);if(nb){r.docHide=false;r.nameBlank=true}r.noLine=nb||(DB.settings.sigMode==='stamp');return r}
+function sigBlock(g){const r=sigBlock0(g);const nb=!!DB.settings.nameBlank&&!(r.docHide&&r.docSig);if(nb){r.docHide=false;r.nameBlank=true}r.noLine=nb||(DB.settings.sigMode==='stamp');return r}
 function sigBlock0(g){const m=DB.settings.sigMode||'both';
   if(m==='none')return {docSig:null,docHide:false,wet:true};
   if(m==='stamp')return {docSig:stampOnly(),docHide:false,wet:true};
